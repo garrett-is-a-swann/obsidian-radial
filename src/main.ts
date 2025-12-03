@@ -1,5 +1,8 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
+import { mount, unmount } from 'svelte';
+import RadialMenu from 'ui/RadialMenu.svelte'
+
 // Remember to rename these classes and interfaces!
 
 interface MyPluginSettings {
@@ -92,18 +95,24 @@ export default class MyPlugin extends Plugin {
 }
 
 class SampleModal extends Modal {
+	ref?: Record<string, any> = undefined;
 	constructor(app: App) {
 		super(app);
 	}
 
 	onOpen() {
 		const { contentEl } = this;
-		console.log(contentEl)
-		contentEl.setText('Woah!');
+		this.ref = mount(RadialMenu, {
+			target: contentEl,
+			props: { content: "Woah (svelte)!" }
+		});
 	}
 
 	onClose() {
 		const { contentEl } = this;
+		if (this.ref) {
+			unmount(this.ref);
+		}
 		contentEl.empty();
 	}
 }
