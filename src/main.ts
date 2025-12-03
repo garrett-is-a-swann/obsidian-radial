@@ -106,6 +106,8 @@ class SampleModal extends Modal {
 			target: contentEl,
 			props: { content: "Woah (svelte)!" }
 		});
+
+		contentEl.parentElement?.classList.add("radial-menu")
 	}
 
 	onClose() {
