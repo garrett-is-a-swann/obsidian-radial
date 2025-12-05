@@ -44,7 +44,11 @@ const context = await esbuild.context({
 	plugins: [
 		esbuildSvelte({
 			compilerOptions: { css: 'injected' },
-			preprocess: sveltePreprocess(),
+			preprocess: sveltePreprocess(
+				/* { /* requires `npm install -D sass`
+					scss: {}
+				} */
+			),
 		}),
 	],
 });

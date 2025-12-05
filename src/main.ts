@@ -3,18 +3,27 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 import { mount, unmount } from 'svelte';
 import RadialMenu from 'ui/RadialMenu.svelte'
 
-// Remember to rename these classes and interfaces!
+import type { ActionGroup } from 'types/ActionGroup'
 
-interface MyPluginSettings {
-	mySetting: string;
+enum ConfigurationFormat {
+	Markdown,
+	YAML,
+};
+
+interface RadialSettings {
+	configuration_path?: string;
+	configuration?: {
+		actions: ActionGroup;
+		format: ConfigurationFormat;
+	}
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: RadialSettings = {
+	configuration_path: undefined,
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class RadialPlugin extends Plugin {
+	settings: RadialSettings;
 
 	async onload() {
 		await this.loadSettings();
@@ -36,13 +45,13 @@ export default class MyPlugin extends Plugin {
 			id: 'open-sample-modal-simple',
 			name: 'Open sample modal (simple)',
 			callback: () => {
-				new SampleModal(this.app).open();
+				new RadialModal(this.app, this).open();
 			}
 		});
 		// This adds an editor command that can perform some operation on the current editor instance
 		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
+			id: 'radial-menu',
+			name: 'Open Radial Menu',
 			editorCallback: (editor: Editor, _view: MarkdownView) => {
 				console.log(editor.getSelection());
 				editor.replaceSelection('Sample Editor Command');
@@ -59,7 +68,7 @@ export default class MyPlugin extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						new SampleModal(this.app).open();
+						new RadialModal(this.app, this).open();
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -69,7 +78,7 @@ export default class MyPlugin extends Plugin {
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new SettingsRoot(this.app, this));
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
@@ -94,17 +103,19 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	ref?: Record<string, any> = undefined;
-	constructor(app: App) {
+class RadialModal extends Modal {
+	ref: Record<string, any>;
+	plugin: RadialPlugin;
+	constructor(app: App, plugin: RadialPlugin) {
 		super(app);
+		this.plugin = plugin;
 	}
 
 	onOpen() {
 		const { contentEl } = this;
 		this.ref = mount(RadialMenu, {
 			target: contentEl,
-			props: { content: "Woah (svelte)!" }
+			props: { actions: this.plugin.settings.configuration?.actions, parent: contentEl }
 		});
 
 		contentEl.parentElement?.classList.add("radial-menu")
@@ -119,10 +130,10 @@ class SampleModal extends Modal {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+class SettingsRoot extends PluginSettingTab {
+	plugin: RadialPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: RadialPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -133,13 +144,116 @@ class SampleSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('Configuration Path')
+			.setDesc('Path to a yaml or md file with yaml body, designating the radial menu configuration.')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+				.setPlaceholder('path/to/some.yaml')
+				.setValue(this.plugin.settings.configuration_path ?? '')
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.configuration_path = value || undefined;
+					if (value.toLowerCase().endsWith('.yaml') || value.toLowerCase().endsWith('.yml')) {
+						// TODO Parse the file.
+						this.plugin.settings.configuration = {
+							format: ConfigurationFormat.YAML,
+							actions: {
+								items: [
+									"command-palette:open",
+									"editor:focus",
+									"global-search:open",
+									"editor:context-menu",
+									"switcher:open",
+									"app:go-back",
+									"app:go-forward",
+									"spacekeys:repeat-last",
+									{
+										name: "Workspace",
+										items: [
+											"editor:focus",
+											"workspace:close",
+											"file-explorer:open",
+											"editor:focus-left",
+											"editor:focus-right",
+											"editor:focus-top",
+											"editor:focus-bottom",
+											"workspace:next-tab",
+											"workspace:new-tab",
+											"outline:open",
+											"workspace:previous-tab",
+											"workspace:toggle-pin",
+											"workspace:split-horizontal",
+											"workspace:toggle-stacked-tabs",
+											"tag-pane:open",
+											"workspace:undo-close-pane",
+											"workspace:split-vertical",
+											"app:toggle-left-sidebar",
+											"app:toggle-right-sidebar",
+											"app:toggle-ribbon",
+											"workspace:open-in-new-window",
+											"workspace:move-to-new-window"
+										]
+									},
+									{
+										name: "Close",
+										items: [
+											"workspace:close-tab-group",
+											"workspace:close-others-tab-group"
+										]
+									}
+								]
+							},
+						}
+					} else {
+						// TODO Parse the file.
+						this.plugin.settings.configuration = {
+							format: ConfigurationFormat.Markdown,
+							actions: {
+								items: [
+									"command-palette:open",
+									"editor:focus",
+									"global-search:open",
+									"editor:context-menu",
+									"switcher:open",
+									"app:go-back",
+									"app:go-forward",
+									"spacekeys:repeat-last",
+									{
+										name: "Workspace",
+										items: [
+											"editor:focus",
+											"workspace:close",
+											"file-explorer:open",
+											"editor:focus-left",
+											"editor:focus-right",
+											"editor:focus-top",
+											"editor:focus-bottom",
+											"workspace:next-tab",
+											"workspace:new-tab",
+											"outline:open",
+											"workspace:previous-tab",
+											"workspace:toggle-pin",
+											"workspace:split-horizontal",
+											"workspace:toggle-stacked-tabs",
+											"tag-pane:open",
+											"workspace:undo-close-pane",
+											"workspace:split-vertical",
+											"app:toggle-left-sidebar",
+											"app:toggle-right-sidebar",
+											"app:toggle-ribbon",
+											"workspace:open-in-new-window",
+											"workspace:move-to-new-window"
+										]
+									},
+									{
+										name: "Close",
+										items: [
+											"workspace:close-tab-group",
+											"workspace:close-others-tab-group"
+										]
+									}
+								]
+							},
+						}
+					}
 					await this.plugin.saveSettings();
 				}));
 	}
