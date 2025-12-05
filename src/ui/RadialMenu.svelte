@@ -10,40 +10,85 @@ const { actions, parent } = $props();
 let width = $state();
 let height = $state();
 
-const buttonRadius = 50;
+const buttonRadius = 25;
 
-const actionStack = $derived([ ...actions.items ]);
+let actionStack = $state([ actions.items ]); // TODO(Garrett): figure out how to: svelte-ignore state_referenced_locally
+
+const buttonState = $state({
+	dragging: false,
+	offset: {
+		x: 0,
+		y: 0,
+	},
+});
+
+$inspect(buttonState);
+
+const performAction = (action)=> {
+	if (action.items === undefined) {
+		// TODO(Garrett): Do the action.
+	}
+	else {
+		actionStack.push([...action.items])
+	}
+	buttonState.dragging = false;
+	buttonState.offset = {x: 0, y: 0};
+}
 
 </script>
 
 <div class="radial-wrapper" bind:clientWidth={width} bind:clientHeight={height}>
-	<div>
-		<p>{width}, {height}</p>
-		<p>/ 2 = {width / 2}, {height / 2}</p>
-	</div>
+	<button 
+		aria-label='radial-draggable-button'
+		style:width ={buttonRadius * 2}px
+		style:height={buttonRadius * 2}px
+		style:border-radius={buttonRadius}px
+		style:left={(width / 2 - buttonRadius)  + buttonState.offset.x}px
+		style:top ={(height / 2 - buttonRadius) + buttonState.offset.y}px
+		onmousedown={()=>buttonState.dragging = true}
+		onmousemove={(event)=> {
+			if (buttonState.dragging) {
+				buttonState.offset.x += event.offsetX - buttonRadius;
+				buttonState.offset.y += event.offsetY - buttonRadius;
 
-	{#each actionStack as action, index}
+				// TODO(Garrett): boundary detection
+			}
+
+		}}
+		onclick={()=> {
+			buttonState.dragging = false
+			if (Math.abs(buttonState.offset.x) <= buttonRadius && Math.abs(buttonState.offset.y) <= buttonRadius) {
+				if (actionStack.length === 1) {
+					// TODO(Garrett): Close the modal.
+					return;
+				}
+				actionStack.pop();
+			}
+			buttonState.offset = {x: 0, y: 0};
+		}}>
+	</button>
+	{#each actionStack[actionStack.length - 1] as action, index (action)}
 		{@const centerX = width / 2}
 		{@const centerY = height / 2}
-		{@const angleIncrement = (2 * Math.PI) / actions.items.length}
+		{@const angleIncrement = (2 * Math.PI) / actionStack[actionStack.length - 1].length}
 		{@const currentAngle = index * angleIncrement}
 		{@const ratioY = Math.cos(currentAngle)}
 		{@const ratioX = Math.sin(currentAngle)}
-		{#if true}
-			<div 
-				class='radial-item'
-				style:border-radius={action?.items ?? `${buttonRadius / 2}px`}
-				style:width='{buttonRadius}px'
-				style:height='{buttonRadius}px'
-				style:top  ="{(1-ratioY) * centerY - (buttonRadius / 2)}px"
-				style:right="{(1-ratioX) * centerX - (buttonRadius / 2)}px">
-				{#if action.items === undefined}
-					{action.substr(0, 5)}
-				{:else}
-					{action.name.substr(0, 5)}
-				{/if}
-			</div>
-		{/if}
+		<button 
+			class='radial-item'
+			style:border-radius={action?.items ?? `${buttonRadius}px`}
+			style:width='{buttonRadius * 2}px'
+			style:height='{buttonRadius * 2}px'
+			style:top  ="{(1-ratioY) * centerY - (buttonRadius)}px"
+			style:right="{(1-ratioX) * centerX - (buttonRadius)}px"
+			onmousemove={()=> buttonState.dragging && performAction(action)}
+			onclick={() => performAction(action)}>
+			{#if action.items === undefined}
+				{action.substr(0, 5)}
+			{:else}
+				{action.name.substr(0, 5)}
+			{/if}
+		</button>
 	{/each}
 </div>
 
@@ -65,8 +110,14 @@ const actionStack = $derived([ ...actions.items ]);
 		justify-content: center;
 		align-items: center;
 
-		border: 1px solid white;
+		border: 1px solid var(--color-accent);
 	}
+
+	> button {
+		border: 1px solid var(--color-accent);
+		position: absolute;
+	}
+
 }
 
 </style>
