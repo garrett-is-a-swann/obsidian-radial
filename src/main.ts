@@ -5,21 +5,186 @@ import RadialMenu from 'ui/RadialMenu.svelte'
 
 import type { ActionGroup } from 'types/ActionGroup'
 
+const CSS_CUSTOM_PROPERTIES = {
+	RADIAL_MENU_RADIUS: {
+		external: '--radial-menu-radius',
+		internal: '--radial-menu-radius-config',
+		fallback: '--dialog-width',
+	},
+	RADIAL_BUTTON_DIAMETER: {
+		external: '--radial-button-diameter',
+		internal: '--radial-button-diameter-config',
+		fallback: '15%',
+	},
+}
+
 enum ConfigurationFormat {
 	Markdown,
 	YAML,
 };
 
-interface RadialSettings {
-	configuration_path?: string;
-	configuration?: {
-		actions: ActionGroup;
-		format: ConfigurationFormat;
+const TEMPORARY_CONFIGURATION_CHANGE_ME = {
+	format: ConfigurationFormat.YAML,
+	actions: {
+		items: [
+			"command-palette:open",
+			"editor:focus",
+			"global-search:open",
+			"editor:context-menu",
+			"switcher:open",
+			"app:go-back",
+			"app:go-forward",
+			"spacekeys:repeat-last",
+			{
+				name: "Workspace",
+				items: [
+					"editor:focus",
+					"workspace:close",
+					"file-explorer:open",
+					"editor:focus-left",
+					"editor:focus-right",
+					"editor:focus-top",
+					"editor:focus-bottom",
+					"workspace:next-tab",
+					"workspace:new-tab",
+					"outline:open",
+					"workspace:previous-tab",
+					"workspace:toggle-pin",
+					"workspace:split-horizontal",
+					"workspace:toggle-stacked-tabs",
+					"tag-pane:open",
+					"workspace:undo-close-pane",
+					"workspace:split-vertical",
+					"app:toggle-left-sidebar",
+					"app:toggle-right-sidebar",
+					"app:toggle-ribbon",
+					"workspace:open-in-new-window",
+					"workspace:move-to-new-window"
+				]
+			},
+			{
+				name: "Close",
+				items: [
+					"workspace:close-tab-group",
+					"workspace:close-others-tab-group"
+				]
+			}
+		]
 	}
 }
 
-const DEFAULT_SETTINGS: RadialSettings = {
-	configuration_path: undefined,
+enum FormFieldType {
+	String,
+	Button,
+	LAST
+};
+
+enum SettingGroup {
+	SemanticGroup = FormFieldType.LAST
+};
+
+interface FormField<FieldT, ValueT> {
+	type: FieldT
+	value?: ValueT;
+};
+
+interface SettingFormTextField extends FormField<FormFieldType.String, string> {
+	name: string;
+	description: string;
+	placeholder?: string;
+	callback?: (plugin: Plugin, previous: string, next: string) => string
+};
+
+interface SettingFormButtonField extends FormField<FormFieldType.Button, null> {
+	text: string;
+	callback: (plugin: Plugin) => (evt: MouseEvent) => unknown | Promise<unknown>;
+	class?: string | ((plugin: Plugin) => string);
+	// icon
+	// cta
+	is_warning?: Boolean | ((plugin: Plugin) => Boolean); // TODO(Garrett): should allow promise-based?
+	is_disabled?: Boolean | ((plugin: Plugin) => Boolean);
+	// tooltip
+}
+
+interface RadialFormSettings {
+	configuration_path: SettingFormTextField;
+	radial_menu: {
+		type: SettingGroup;
+		radius: SettingFormTextField;
+		button_size: SettingFormTextField;
+	};
+};
+
+interface RadialSettings extends RadialFormSettings {
+	configuration?: {
+		actions: ActionGroup;
+		format: ConfigurationFormat;
+	};
+	reset_configuration_button: SettingFormButtonField;
+}
+
+const DEFAULT_SETTINGS: RadialFormSettings = {
+	configuration_path: {
+		name: "Configuration Path",
+		type: FormFieldType.String, // TODO: ...does this have to be set manually? Missing c++...
+		value: undefined,
+		description: 'Path to a yaml or md file with yaml body, designating the radial menu configuration.',
+		placeholder: 'path/to/some.yaml',
+		callback: (plugin: RadialPlugin, _previous: string, next: string) => {
+			if (next.toLowerCase().endsWith('.yaml') || next.toLowerCase().endsWith('.yml')) {
+				// TODO Parse the file.
+				plugin.settings.configuration = {
+					format: ConfigurationFormat.YAML,
+					actions: plugin.settings.configuration?.actions ?? {
+						items: []
+					}
+				};
+			} else {
+				// TODO Parse the file.
+				plugin.settings.configuration = {
+					format: ConfigurationFormat.YAML,
+					actions: plugin.settings.configuration?.actions ?? {
+						items: []
+					}
+				};
+			}
+			return next;
+		}
+	},
+	radial_menu: {
+		type: SettingGroup.SemanticGroup,
+		radius: {
+			name: "Radial Menu - Radius",
+			type: FormFieldType.String,
+			value: undefined,
+			description: `Override for the radial menu radius. Also overrideable via ${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_RADIUS.external} css custom property. Defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_RADIUS.fallback} if neither of these are set.`,
+			placeholder: 'Ex: 50vw'
+		},
+		button_size: {
+			name: "Radial Menu - Button Size",
+			type: FormFieldType.String,
+			value: undefined,
+			description: `Size in pixels for Radial Menu Buttons. Also overridable via ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.external} css custom property. Otherwise defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}.`,
+			placeholder: `Ex: ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}`
+		},
+	}
+}
+
+const RADIAL_SETTINGS_CONFIGURATION: Partial<RadialSettings> = {
+	reset_configuration_button: {
+		type: FormFieldType.Button,
+		text: "Reset configuration to plugin defaults",
+		callback: (plugin: RadialPlugin) => async (_event: MouseEvent) => {
+			plugin.settings = Object.assign(
+				{},
+				DEFAULT_SETTINGS,
+				RADIAL_SETTINGS_CONFIGURATION,
+				{ configuration: TEMPORARY_CONFIGURATION_CHANGE_ME },
+			) as RadialSettings;
+			await plugin.saveSettings();
+		},
+		is_warning: true,
+	}
 }
 
 export default class RadialPlugin extends Plugin {
@@ -95,7 +260,17 @@ export default class RadialPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// TODO(Garrett): This isn't going to cut it.... per-field configuration versioning could be a good idea... low priority....
+		// I see why people add a refresh button.
+		//
+		// UPDATE: Now that i have coalesceFormFields, I can probably just save {path.to.value: value, ...} as cached state, and marshall to avoid caching actual config.
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData(),
+			RADIAL_SETTINGS_CONFIGURATION,
+			{ configuration: TEMPORARY_CONFIGURATION_CHANGE_ME },
+		);
 	}
 
 	async saveSettings() {
@@ -115,10 +290,22 @@ class RadialModal extends Modal {
 		const { contentEl } = this;
 		this.ref = mount(RadialMenu, {
 			target: contentEl,
-			props: { actions: this.plugin.settings.configuration?.actions, parent: contentEl }
+			props: {
+				actions: this.plugin.settings.configuration?.actions,
+				parent: contentEl,
+			}
 		});
 
-		contentEl.parentElement?.classList.add("radial-menu")
+		const parent = contentEl.parentElement;
+		if (parent) {
+			parent.classList.add("radial-menu")
+			if (this.plugin.settings.radial_menu.radius.value) {
+				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_RADIUS.internal}: ${this.plugin.settings.radial_menu.radius.value};`
+			}
+			if (this.plugin.settings.radial_menu.radius.value) {
+				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.internal}: ${this.plugin.settings.radial_menu.button_size.value};`
+			}
+		}
 	}
 
 	onClose() {
@@ -138,123 +325,60 @@ class SettingsRoot extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private coalesceFormFields(settings: any = undefined, form_fields: FormField<any, any>[] | undefined = undefined) {
+		if (!settings) {
+			settings = this.plugin.settings;
+		}
+		if (!form_fields) {
+			form_fields = [];
+		}
+
+		for (const setting of Object.values(settings) as any[]) {
+			if (setting?.type >= FormFieldType.LAST) {
+				this.coalesceFormFields(setting, form_fields);
+			}
+			else if (setting.type !== undefined) {
+				form_fields.push(setting);
+			}
+		}
+		return form_fields;
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
 		containerEl.empty();
 
-		new Setting(containerEl)
-			.setName('Configuration Path')
-			.setDesc('Path to a yaml or md file with yaml body, designating the radial menu configuration.')
-			.addText(text => text
-				.setPlaceholder('path/to/some.yaml')
-				.setValue(this.plugin.settings.configuration_path ?? '')
-				.onChange(async (value) => {
-					this.plugin.settings.configuration_path = value || undefined;
-					if (value.toLowerCase().endsWith('.yaml') || value.toLowerCase().endsWith('.yml')) {
-						// TODO Parse the file.
-						this.plugin.settings.configuration = {
-							format: ConfigurationFormat.YAML,
-							actions: {
-								items: [
-									"command-palette:open",
-									"editor:focus",
-									"global-search:open",
-									"editor:context-menu",
-									"switcher:open",
-									"app:go-back",
-									"app:go-forward",
-									"spacekeys:repeat-last",
-									{
-										name: "Workspace",
-										items: [
-											"editor:focus",
-											"workspace:close",
-											"file-explorer:open",
-											"editor:focus-left",
-											"editor:focus-right",
-											"editor:focus-top",
-											"editor:focus-bottom",
-											"workspace:next-tab",
-											"workspace:new-tab",
-											"outline:open",
-											"workspace:previous-tab",
-											"workspace:toggle-pin",
-											"workspace:split-horizontal",
-											"workspace:toggle-stacked-tabs",
-											"tag-pane:open",
-											"workspace:undo-close-pane",
-											"workspace:split-vertical",
-											"app:toggle-left-sidebar",
-											"app:toggle-right-sidebar",
-											"app:toggle-ribbon",
-											"workspace:open-in-new-window",
-											"workspace:move-to-new-window"
-										]
-									},
-									{
-										name: "Close",
-										items: [
-											"workspace:close-tab-group",
-											"workspace:close-others-tab-group"
-										]
-									}
-								]
-							},
+		for (const element of this.coalesceFormFields()) {
+			if (element.type === FormFieldType.String) {
+				const { name, description, placeholder, callback } = element as SettingFormTextField;
+				new Setting(containerEl)
+					.setName(name)
+					.setDesc(description)
+					.addText(text => {
+						text
+							.setValue(element.value ?? "")
+							.onChange(async (next_value: string) => {
+								element.value = callback ? callback(this.plugin, element.value, next_value) : next_value || undefined;
+								await this.plugin.saveSettings();
+							});
+						if (placeholder) {
+							text.setPlaceholder(placeholder);
 						}
-					} else {
-						// TODO Parse the file.
-						this.plugin.settings.configuration = {
-							format: ConfigurationFormat.Markdown,
-							actions: {
-								items: [
-									"command-palette:open",
-									"editor:focus",
-									"global-search:open",
-									"editor:context-menu",
-									"switcher:open",
-									"app:go-back",
-									"app:go-forward",
-									"spacekeys:repeat-last",
-									{
-										name: "Workspace",
-										items: [
-											"editor:focus",
-											"workspace:close",
-											"file-explorer:open",
-											"editor:focus-left",
-											"editor:focus-right",
-											"editor:focus-top",
-											"editor:focus-bottom",
-											"workspace:next-tab",
-											"workspace:new-tab",
-											"outline:open",
-											"workspace:previous-tab",
-											"workspace:toggle-pin",
-											"workspace:split-horizontal",
-											"workspace:toggle-stacked-tabs",
-											"tag-pane:open",
-											"workspace:undo-close-pane",
-											"workspace:split-vertical",
-											"app:toggle-left-sidebar",
-											"app:toggle-right-sidebar",
-											"app:toggle-ribbon",
-											"workspace:open-in-new-window",
-											"workspace:move-to-new-window"
-										]
-									},
-									{
-										name: "Close",
-										items: [
-											"workspace:close-tab-group",
-											"workspace:close-others-tab-group"
-										]
-									}
-								]
-							},
+					});
+			}
+			if (element.type === FormFieldType.Button) {
+				const { text, callback, is_warning } = element as Omit<SettingFormButtonField, "is_warning"> & { is_warning: Boolean & ((plugin: Plugin) => Boolean) };
+				new Setting(containerEl)
+					.addButton((button) => {
+						button
+							.setButtonText(text)
+							.onClick(callback(this.plugin));
+						if (is_warning?.call ? is_warning(this.plugin) : is_warning) {
+							button.setWarning();
 						}
-					}
-					await this.plugin.saveSettings();
-				}));
+					});
+			}
+		}
 	}
 }

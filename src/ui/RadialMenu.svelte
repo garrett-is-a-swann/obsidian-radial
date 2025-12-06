@@ -4,13 +4,17 @@ import type { ActionGroup } from 'types/ActionGroup';
 interface Props {
 	actions: ActionGroup,
 	parent: HTMLElement,
+	buttonRadius: number,
 };
-const { actions, parent } = $props();
+const {
+	actions,
+	parent,
+	buttonRadius = 25,
+} = $props();
 
 let width = $state();
 let height = $state();
-
-const buttonRadius = 25;
+let buttonDiameter = $state();
 
 let actionStack = $state([ actions.items ]); // TODO(Garrett): figure out how to: svelte-ignore state_referenced_locally
 
@@ -22,9 +26,10 @@ const buttonState = $state({
 	},
 });
 
+
 $inspect(buttonState);
 
-const performAction = (action)=> {
+const performAcstion = (action)=> {
 	if (action.items === undefined) {
 		// TODO(Garrett): Do the action.
 	}
@@ -40,16 +45,15 @@ const performAction = (action)=> {
 <div class="radial-wrapper" bind:clientWidth={width} bind:clientHeight={height}>
 	<button 
 		aria-label='radial-draggable-button'
-		style:width ={buttonRadius * 2}px
-		style:height={buttonRadius * 2}px
-		style:border-radius={buttonRadius}px
-		style:left={(width / 2 - buttonRadius)  + buttonState.offset.x}px
-		style:top ={(height / 2 - buttonRadius) + buttonState.offset.y}px
+		bind:clientWidth={buttonDiameter}
+		style:border-radius={buttonDiameter / 2}px
+		style:left={(width / 2 - buttonDiameter / 2)  + buttonState.offset.x}px
+		style:top ={(height / 2 - buttonDiameter / 2) + buttonState.offset.y}px
 		onmousedown={()=>buttonState.dragging = true}
 		onmousemove={(event)=> {
 			if (buttonState.dragging) {
-				buttonState.offset.x += event.offsetX - buttonRadius;
-				buttonState.offset.y += event.offsetY - buttonRadius;
+				buttonState.offset.x += event.offsetX - buttonDiameter / 2;
+				buttonState.offset.y += event.offsetY - buttonDiameter / 2;
 
 				// TODO(Garrett): boundary detection
 			}
@@ -57,7 +61,7 @@ const performAction = (action)=> {
 		}}
 		onclick={()=> {
 			buttonState.dragging = false
-			if (Math.abs(buttonState.offset.x) <= buttonRadius && Math.abs(buttonState.offset.y) <= buttonRadius) {
+			if (Math.abs(buttonState.offset.x) <= buttonDiameter / 2 && Math.abs(buttonState.offset.y) <= buttonDiameter / 2) {
 				if (actionStack.length === 1) {
 					// TODO(Garrett): Close the modal.
 					return;
@@ -76,11 +80,11 @@ const performAction = (action)=> {
 		{@const ratioX = Math.sin(currentAngle)}
 		<button 
 			class='radial-item'
-			style:border-radius={action?.items ?? `${buttonRadius}px`}
-			style:width='{buttonRadius * 2}px'
-			style:height='{buttonRadius * 2}px'
-			style:top  ="{(1-ratioY) * centerY - (buttonRadius)}px"
-			style:right="{(1-ratioX) * centerX - (buttonRadius)}px"
+			style:border-radius={action?.items ?? `${buttonDiameter / 2}px`}
+			style:width='{buttonDiameter / 2 * 2}px'
+			style:height='{buttonDiameter / 2 * 2}px'
+			style:top  ="{(1-ratioY) * centerY - (buttonDiameter / 2)}px"
+			style:right="{(1-ratioX) * centerX - (buttonDiameter / 2)}px"
 			onmousemove={()=> buttonState.dragging && performAction(action)}
 			onclick={() => performAction(action)}>
 			{#if action.items === undefined}
@@ -116,6 +120,8 @@ const performAction = (action)=> {
 	> button {
 		border: 1px solid var(--color-accent);
 		position: absolute;
+		width: var(--radial-button-diameter, var(--radial-button-diameter-config, 15%));
+		height: var(--radial-button-diameter, var(--radial-button-diameter-config, 15%));
 	}
 
 }
