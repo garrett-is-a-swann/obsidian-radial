@@ -25,9 +25,6 @@ const buttonState = $state({
 	},
 });
 
-
-$inspect(buttonState);
-
 const performAcstion = (action)=> {
 	if (action.items === undefined) {
 		// TODO(Garrett): Do the action.
@@ -41,7 +38,33 @@ const performAcstion = (action)=> {
 
 </script>
 
-<div class="radial-wrapper" bind:this={radialWrapper} bind:clientWidth={width} bind:clientHeight={height}>
+<div 
+	role='menu'
+	tabindex='-1'
+	class="radial-wrapper"
+	bind:this={radialWrapper}
+	bind:clientWidth={width}
+	bind:clientHeight={height}
+	onmouseenter={(event)=>{
+		if (buttonState.dragging) {
+			const modal = radialWrapper.parentElement.parentElement;
+			const modalStyle = getComputedStyle(modal);
+			const radialBox = modal.getBoundingClientRect();
+			buttonState.offset = {
+				x: event.clientX - radialBox.left - parseFloat(modalStyle.width) / 2,
+				y: event.clientY - radialBox.top - parseFloat(modalStyle.height) / 2,
+			};
+		}
+	}}
+	onmouseleave={(event)=> {
+		if (buttonState.dragging) {
+			buttonState.offset = {
+				x: 0,
+				y: 0,
+			};
+			buttonState.dragging = false;
+		}
+	}}>
 	<button 
 		aria-label='radial-draggable-button'
 		bind:clientWidth={buttonDiameter}
@@ -93,6 +116,8 @@ const performAcstion = (action)=> {
 		{@const ratioX = Math.sin(currentAngle)}
 		<button 
 			class='radial-item'
+			role='menuitem'
+			tabindex='0'
 			style:border-radius={action?.items ?? `${buttonDiameter / 2}px`}
 			style:width='{buttonDiameter / 2 * 2}px'
 			style:height='{buttonDiameter / 2 * 2}px'
