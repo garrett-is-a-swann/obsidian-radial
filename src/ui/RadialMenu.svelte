@@ -4,17 +4,16 @@ import type { ActionGroup } from 'types/ActionGroup';
 interface Props {
 	actions: ActionGroup,
 	parent: HTMLElement,
-	buttonRadius: number,
 };
 const {
 	actions,
 	parent,
-	buttonRadius = 25,
 } = $props();
 
 let width = $state();
 let height = $state();
 let buttonDiameter = $state();
+let radialWrapper = $state();
 
 let actionStack = $state([ actions.items ]); // TODO(Garrett): figure out how to: svelte-ignore state_referenced_locally
 
@@ -42,7 +41,7 @@ const performAcstion = (action)=> {
 
 </script>
 
-<div class="radial-wrapper" bind:clientWidth={width} bind:clientHeight={height}>
+<div class="radial-wrapper" bind:this={radialWrapper} bind:clientWidth={width} bind:clientHeight={height}>
 	<button 
 		aria-label='radial-draggable-button'
 		bind:clientWidth={buttonDiameter}
@@ -52,10 +51,23 @@ const performAcstion = (action)=> {
 		onmousedown={()=>buttonState.dragging = true}
 		onmousemove={(event)=> {
 			if (buttonState.dragging) {
-				buttonState.offset.x += event.offsetX - buttonDiameter / 2;
-				buttonState.offset.y += event.offsetY - buttonDiameter / 2;
+				let next = {
+					x: buttonState.offset.x + event.offsetX - buttonDiameter / 2,
+					y: buttonState.offset.y + event.offsetY - buttonDiameter / 2,
+				};
 
-				// TODO(Garrett): boundary detection
+				// boundary detection
+				const modalRadius = parseFloat(getComputedStyle(radialWrapper.parentElement.parentElement).width) / 2;
+				const distance = Math.sqrt(next.x * next.x + next.y * next.y);
+				if (distance + (buttonDiameter / 2) > modalRadius) {
+					const shift = (distance - modalRadius) + (buttonDiameter/2);
+					const angle = Math.atan(next.y / next.x);
+					const shiftX = Math.cos(angle) * shift * (next.x > 0? -1: 1);
+					const shiftY = Math.sin(angle) * shift * (next.x > 0? -1: 1);
+					next.x += shiftX;
+					next.y += shiftY;
+				}
+				buttonState.offset = next;
 			}
 
 		}}
@@ -70,6 +82,7 @@ const performAcstion = (action)=> {
 			}
 			buttonState.offset = {x: 0, y: 0};
 		}}>
+		{buttonState.offset.x}, {buttonState.offset.y}
 	</button>
 	{#each actionStack[actionStack.length - 1] as action, index (action)}
 		{@const centerX = width / 2}
