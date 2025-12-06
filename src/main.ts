@@ -293,6 +293,11 @@ class RadialModal extends Modal {
 			props: {
 				actions: this.plugin.settings.configuration?.actions,
 				parent: contentEl,
+				app: this.app,
+				commands: (this.app as any).commands.commands, // Internal API - TODO(Garrett): Add obsidian-typings
+				closeMenu: () => {
+					this.close();
+				}
 			}
 		});
 

@@ -1,13 +1,20 @@
 <script lang="ts">
+import type { App, MarkdownView } from 'obsidian';
 import type { Action } from 'types/Action';
 import type { ActionGroup } from 'types/ActionGroup';
 interface Props {
 	actions: ActionGroup,
 	parent: HTMLElement,
+	app: App,
+	commands: any[], // TODO(Garrett): Use obsidian-typings for type info.
+	closeMenu: () => void,
 };
 const {
 	actions,
 	parent,
+	app,
+	commands,
+	closeMenu,
 } = $props();
 
 let width = $state();
@@ -25,9 +32,25 @@ const buttonState = $state({
 	},
 });
 
-const performAcstion = (action)=> {
+const performAction = (action)=> {
 	if (action.items === undefined) {
-		// TODO(Garrett): Do the action.
+		const command = commands[action];
+		console.log(action);
+		if (!command) {
+			// TODO(Garrett): Colorization/Pre-Verification commands are functional.
+			console.error("Unknown command:", command);
+		}
+		if (command.callback) {
+			command.callback();
+		}
+		else if (command.checkCallback) {
+			command.checkCallback(false);
+		}
+		else if (command.editorCheckCallback) {
+			command.editorCheckCallback(false, app.workspace.activeEditor, app.workspace.getActiveViewOfType<MarkdownView>());
+		}
+		closeMenu();
+		return;
 	}
 	else {
 		actionStack.push([...action.items])
