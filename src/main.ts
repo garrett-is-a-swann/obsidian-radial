@@ -161,7 +161,7 @@ interface RadialFormSettings {
 		type: SettingGroup;
 		diameter: SettingFormTextField;
 		button_size: SettingFormTextField;
-		radial_retargetting: SettingFormToggleField;
+		radial_retargeting: SettingFormToggleField;
 	};
 };
 
@@ -217,8 +217,8 @@ const DEFAULT_SETTINGS: RadialFormSettings = {
 			description: `Manual override for Radial Menu Buttons diameter. Also overridable via ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.external} css custom property. Otherwise defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}.`,
 			placeholder: `Ex: ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}`
 		},
-		radial_retargetting: {
-			name: "Radial Retargetting",
+		radial_retargeting: {
+			name: "Radial Retargeting",
 			description: "Makes it so you can draw a continuous motion.",
 			type: FormFieldType.Toggle,
 			value: true,
@@ -306,7 +306,7 @@ class RadialModal extends Modal {
 				closeMenu: () => {
 					this.close();
 				},
-				setTarget: this.plugin.settings.radial_menu.radial_retargetting.value && ((offset: { x: number, y: number }) => {
+				setTarget: this.plugin.settings.radial_menu.radial_retargeting.value && ((offset: { x: number, y: number }) => {
 					const px_regex = /(-?[0-9]*(?:\.[0-9]*)?)px/;
 					const left_match = parent.style.left.match(px_regex);
 					if (left_match) {

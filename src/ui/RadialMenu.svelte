@@ -24,6 +24,7 @@ let width = $state();
 let height = $state();
 let buttonDiameter = $state();
 let radialWrapper = $state();
+let rotationAngle = $state([0]);
 
 let actionStack = $state([ actions.items ]); // TODO(Garrett): figure out how to: svelte-ignore state_referenced_locally
 
@@ -34,6 +35,10 @@ const buttonState = $state({
 		y: 0,
 	},
 });
+
+function deg(rads) {
+	return rads * (180 / Math.PI);
+}
 
 const performAction = (action)=> {
 	if (action.items === undefined) {
@@ -58,7 +63,14 @@ const performAction = (action)=> {
 	else {
 		if (setTarget) {
 			setTarget(buttonState.offset)
+			if (action.items === null) {
+				rotationAngle.pop();
+			} else {
+				const rads = Math.atan2(-buttonState.offset.y, buttonState.offset.x);
+				rotationAngle.push(rads + Math.PI)
+			}
 		}
+
 		if (action.items === null) {
 			// "Back" psuedo-element, should pop instead.
 			actionStack.pop();
@@ -108,6 +120,7 @@ const performAction = (action)=> {
 			buttonState.dragging = false;
 		}
 	}}>
+	{deg(rotationAngle)}
 	<button 
 		aria-label='radial-draggable-button'
 		bind:clientWidth={buttonDiameter}
@@ -127,7 +140,7 @@ const performAction = (action)=> {
 				const distance = Math.sqrt(next.x * next.x + next.y * next.y);
 				if (distance + (buttonDiameter / 2) > modalRadius) {
 					const shift = (distance - modalRadius) + (buttonDiameter/2);
-					const angle = Math.atan(next.y / next.x);
+					const angle = Math.atan2(next.y, next.x);
 					const shiftX = Math.cos(angle) * shift * (next.x > 0? -1: 1);
 					const shiftY = Math.sin(angle) * shift * (next.x > 0? -1: 1);
 					next.x += shiftX;
@@ -141,22 +154,22 @@ const performAction = (action)=> {
 			buttonState.dragging = false
 			if (Math.abs(buttonState.offset.x) <= buttonDiameter / 2 && Math.abs(buttonState.offset.y) <= buttonDiameter / 2) {
 				if (actionStack.length === 1) {
-					// TODO(Garrett): Close the modal.
+					closeMenu();
 					return;
 				}
 				actionStack.pop();
 			}
 			buttonState.offset = {x: 0, y: 0};
 		}}>
-		{buttonState.offset.x}, {buttonState.offset.y}
+		{buttonState.offset.x}, {-buttonState.offset.y} | {deg(Math.atan2(-buttonState.offset.y, buttonState.offset.x))}
 	</button>
 	{#each actionStack[actionStack.length - 1] as action, index (action)}
 		{@const centerX = width / 2}
 		{@const centerY = height / 2}
 		{@const angleIncrement = (2 * Math.PI) / actionStack[actionStack.length - 1].length}
-		{@const currentAngle = index * angleIncrement}
-		{@const ratioY = Math.cos(currentAngle)}
-		{@const ratioX = Math.sin(currentAngle)}
+		{@const currentAngle = index * angleIncrement + rotationAngle[rotationAngle.length - 1]}
+		{@const ratioY = Math.sin(currentAngle)}
+		{@const ratioX = Math.cos(currentAngle)}
 		<button 
 			class={['radial-item', {'radial-item-action': action.items === undefined, 'radial-items-group': !!action.items, 'radial-items-pop': action.items === null}]}
 			role='menuitem'
@@ -169,6 +182,8 @@ const performAction = (action)=> {
 			onmousemove={()=> buttonState.dragging && performAction(action)}
 			onclick={() => performAction(action)}>
 			<span class='radial-item-body'>
+				{Math.round(deg(angleIncrement) * 10) / 10}
+				{Math.round(deg(currentAngle) * 10) / 10}
 				{#if action.items === undefined}
 					{action.substr(0, 5)}
 				{:else}
@@ -201,6 +216,7 @@ const performAction = (action)=> {
 
 		&.radial-items-pop {
 			rotate: 45deg;
+			background: red;
 			> .radial-item-body {
 				rotate: -45deg;
 			}
