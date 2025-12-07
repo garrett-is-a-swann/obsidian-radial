@@ -59,7 +59,19 @@ const performAction = (action)=> {
 		if (setTarget) {
 			setTarget(buttonState.offset)
 		}
-		actionStack.push([...action.items])
+		if (action.items === null) {
+			// "Back" psuedo-element, should pop instead.
+			actionStack.pop();
+		}
+		else {
+			actionStack.push([
+				{
+					name: "Back",
+					items: null,
+				},
+				...action.items,
+			]);
+		}
 	}
 	if (!setTarget) {
 		buttonState.dragging = false;
@@ -146,21 +158,23 @@ const performAction = (action)=> {
 		{@const ratioY = Math.cos(currentAngle)}
 		{@const ratioX = Math.sin(currentAngle)}
 		<button 
-			class='radial-item'
+			class={['radial-item', {'radial-item-action': action.items === undefined, 'radial-items-group': !!action.items, 'radial-items-pop': action.items === null}]}
 			role='menuitem'
 			tabindex='0'
-			style:border-radius={action?.items ?? `${buttonDiameter / 2}px`}
+			style:border-radius={action?.items === undefined && `${buttonDiameter / 2}px`}
 			style:width='{buttonDiameter / 2 * 2}px'
 			style:height='{buttonDiameter / 2 * 2}px'
 			style:top  ="{(1-ratioY) * centerY - (buttonDiameter / 2)}px"
 			style:right="{(1-ratioX) * centerX - (buttonDiameter / 2)}px"
 			onmousemove={()=> buttonState.dragging && performAction(action)}
 			onclick={() => performAction(action)}>
-			{#if action.items === undefined}
-				{action.substr(0, 5)}
-			{:else}
-				{action.name.substr(0, 5)}
-			{/if}
+			<span class='radial-item-body'>
+				{#if action.items === undefined}
+					{action.substr(0, 5)}
+				{:else}
+					{action.name.substr(0, 5)}
+				{/if}
+			</span>
 		</button>
 	{/each}
 </div>
@@ -184,6 +198,13 @@ const performAction = (action)=> {
 		align-items: center;
 
 		border: 1px solid var(--color-accent);
+
+		&.radial-items-pop {
+			rotate: 45deg;
+			> .radial-item-body {
+				rotate: -45deg;
+			}
+		}
 	}
 
 	> button {
