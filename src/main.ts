@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Modal, Plugin, PluginSettingTab, Setting, TooltipOptions } from 'obsidian';
 
 import { mount, unmount } from 'svelte';
 import RadialMenu from 'ui/RadialMenu.svelte'
@@ -6,9 +6,9 @@ import RadialMenu from 'ui/RadialMenu.svelte'
 import type { ActionGroup } from 'types/ActionGroup'
 
 const CSS_CUSTOM_PROPERTIES = {
-	RADIAL_MENU_RADIUS: {
-		external: '--radial-menu-radius',
-		internal: '--radial-menu-radius-config',
+	RADIAL_MENU_DIAMETER: {
+		external: '--radial-menu-diameter',
+		internal: '--radial-menu-diameter-config',
 		fallback: '--dialog-width',
 	},
 	RADIAL_BUTTON_DIAMETER: {
@@ -73,6 +73,7 @@ const TEMPORARY_CONFIGURATION_CHANGE_ME = {
 	}
 }
 
+// TODO(Garrett): Handle more types: https://docs.obsidian.md/Reference/TypeScript+API/Setting#Methods
 enum FormFieldType {
 	String,
 	Button,
@@ -89,14 +90,19 @@ interface FormField<FieldT, ValueT> {
 	value?: ValueT;
 };
 
-interface SettingFormTextField extends FormField<FormFieldType.String, string> {
+interface MandatoryDetails {
 	name: string;
 	description: string;
+}
+
+type OptionalDetails = Partial<MandatoryDetails>
+
+interface SettingFormTextField extends FormField<FormFieldType.String, string>, MandatoryDetails {
 	placeholder?: string;
 	callback?: (plugin: Plugin, previous: string, next: string) => string
 };
 
-interface SettingFormButtonField extends FormField<FormFieldType.Button, null> {
+interface SettingFormButtonField extends FormField<FormFieldType.Button, null>, OptionalDetails {
 	text: string;
 	callback: (plugin: Plugin) => (evt: MouseEvent) => unknown | Promise<unknown>;
 	class?: string | ((plugin: Plugin) => string);
@@ -107,12 +113,18 @@ interface SettingFormButtonField extends FormField<FormFieldType.Button, null> {
 	// tooltip
 }
 
+interface SettingFormToggleField extends FormField<FormFieldType.Toggle, Boolean>, MandatoryDetails {
+	tooltip?: { text: String, options?: TooltipOptions };
+	//is_disabled?: Boolean | ((plugin: Plugin) => Boolean);
+}
+
 interface RadialFormSettings {
 	configuration_path: SettingFormTextField;
 	radial_menu: {
 		type: SettingGroup;
-		radius: SettingFormTextField;
+		diameter: SettingFormTextField;
 		button_size: SettingFormTextField;
+		radial_retargetting: SettingFormToggleField;
 	};
 };
 
@@ -154,20 +166,26 @@ const DEFAULT_SETTINGS: RadialFormSettings = {
 	},
 	radial_menu: {
 		type: SettingGroup.SemanticGroup,
-		radius: {
-			name: "Radial Menu - Radius",
+		diameter: {
+			name: "Radial Menu - Diameter",
 			type: FormFieldType.String,
 			value: undefined,
-			description: `Override for the radial menu radius. Also overrideable via ${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_RADIUS.external} css custom property. Defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_RADIUS.fallback} if neither of these are set.`,
+			description: `Manual override for Radial Menu diameter. Also overrideable via ${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.external} css custom property. Defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.fallback} if neither of these are set.`,
 			placeholder: 'Ex: 50vw'
 		},
 		button_size: {
-			name: "Radial Menu - Button Size",
+			name: "Radial Menu - Button Diameter",
 			type: FormFieldType.String,
 			value: undefined,
-			description: `Size in pixels for Radial Menu Buttons. Also overridable via ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.external} css custom property. Otherwise defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}.`,
+			description: `Manual override for Radial Menu Buttons diameter. Also overridable via ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.external} css custom property. Otherwise defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}.`,
 			placeholder: `Ex: ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}`
 		},
+		radial_retargetting: {
+			name: "Radial Retargetting",
+			description: "Makes it so you can draw a continuous motion.",
+			type: FormFieldType.Toggle,
+			value: true,
+		}
 	}
 }
 
@@ -255,10 +273,10 @@ class RadialModal extends Modal {
 		const parent = contentEl.parentElement;
 		if (parent) {
 			parent.classList.add("radial-menu")
-			if (this.plugin.settings.radial_menu.radius.value) {
-				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_RADIUS.internal}: ${this.plugin.settings.radial_menu.radius.value};`
+			if (this.plugin.settings.radial_menu.diameter.value) {
+				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.internal}: ${this.plugin.settings.radial_menu.diameter.value};`
 			}
-			if (this.plugin.settings.radial_menu.radius.value) {
+			if (this.plugin.settings.radial_menu.diameter.value) {
 				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.internal}: ${this.plugin.settings.radial_menu.button_size.value};`
 			}
 		}
@@ -324,8 +342,8 @@ class SettingsRoot extends PluginSettingTab {
 					});
 			}
 			if (element.type === FormFieldType.Button) {
-				const { text, callback, is_warning } = element as Omit<SettingFormButtonField, "is_warning"> & { is_warning: Boolean & ((plugin: Plugin) => Boolean) };
-				new Setting(containerEl)
+				const { name, description, text, callback, is_warning } = element as Omit<SettingFormButtonField, "is_warning"> & { is_warning: Boolean & ((plugin: Plugin) => Boolean) };
+				const setting = new Setting(containerEl)
 					.addButton((button) => {
 						button
 							.setButtonText(text)
@@ -334,6 +352,30 @@ class SettingsRoot extends PluginSettingTab {
 							button.setWarning();
 						}
 					});
+				if (name) {
+					setting.setName(name);
+				}
+				if (description) {
+					setting.setDesc(description);
+				}
+			}
+			if (element.type === FormFieldType.Toggle) {
+				const { name, description, tooltip, /*is_disabled,*/ } = element as SettingFormToggleField;
+				new Setting(containerEl)
+					.setName(name)
+					.setDesc(description)
+					.addToggle(toggle => {
+						toggle
+							.setValue(element.value ?? false)
+							.onChange(async (next_value: Boolean) => {
+								element.value = next_value;
+								await this.plugin.saveSettings();
+							});
+						if (tooltip) {
+							toggle.setTooltip(tooltip?.text, tooltip?.options);
+						}
+					})
+					;
 			}
 		}
 	}
