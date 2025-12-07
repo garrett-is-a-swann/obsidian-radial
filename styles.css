@@ -10,3 +10,7 @@
 		align-items: center;
 	}
 }
+
+.tooltip.go-away {
+	display: none;
+}

@@ -1,4 +1,5 @@
 import { App, Modal, Plugin, PluginSettingTab, Setting, TooltipOptions } from 'obsidian';
+import type { Position } from 'types/Position';
 
 import { mount, unmount } from 'svelte';
 import RadialMenu from 'ui/RadialMenu.svelte'
@@ -176,7 +177,7 @@ interface RadialSettings extends RadialFormSettings {
 const DEFAULT_SETTINGS: RadialFormSettings = {
 	configuration_path: {
 		name: "Configuration Path",
-		type: FormFieldType.String, // TODO: ...does this have to be set manually? Missing c++...
+		type: FormFieldType.String,
 		value: undefined,
 		description: 'Path to a yaml or md file with yaml body, designating the radial menu configuration.',
 		placeholder: 'path/to/some.yaml',
@@ -306,35 +307,9 @@ class RadialModal extends Modal {
 				closeMenu: () => {
 					this.close();
 				},
-				setTarget: this.plugin.settings.radial_menu.radial_retargeting.value && ((offset: { x: number, y: number }, set: boolean = false) => {
-					if (set) {
-						parent.style.left = `${offset.x}px`;
-						parent.style.top = `${offset.y}px`;
-					}
-					console.log(offset);
-					const px_regex = /(-?[0-9]*(?:\.[0-9]*)?)px/;
-					const left_match = parent.style.left.match(px_regex);
-					if (left_match) {
-						console.log(left_match[1], "+", offset.x);
-						parent.style.left = `${parseFloat(left_match[1]) + offset.x}px`;
-					}
-					else {
-						if (parent.style.left) {
-							console.error("RadialRetargeting Error - Modal left has no px:", parent.style.left);
-						}
-						parent.style.left = `${offset.x}px`;
-					}
-
-					const top_match = parent.style.top?.match(px_regex);
-					if (top_match) {
-						console.log(top_match[1], "+", offset.y);
-						parent.style.top = `${parseFloat(top_match[1]) + offset.y}px`;
-					} else {
-						if (parent.style.top) {
-							console.error("RadialRetargeting Error - Modal top has no px:", parent.style.top);
-						}
-						parent.style.top = `${offset.y}px`;
-					}
+				setTarget: this.plugin.settings.radial_menu.radial_retargeting.value && ((offset: Position) => {
+					parent.style.left = `${offset.x}px`;
+					parent.style.top = `${offset.y}px`;
 				}),
 			}
 		});
@@ -342,10 +317,10 @@ class RadialModal extends Modal {
 		if (parent) {
 			parent.classList.add("radial-menu")
 			if (this.plugin.settings.radial_menu.diameter.value) {
-				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.internal}: ${this.plugin.settings.radial_menu.diameter.value};`
+				parent.style.setProperty(CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.internal, this.plugin.settings.radial_menu.diameter.value);
 			}
 			if (this.plugin.settings.radial_menu.diameter.value) {
-				parent.style.cssText += `${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.internal}: ${this.plugin.settings.radial_menu.button_size.value};`
+				parent.style.setProperty(CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.internal, this.plugin.settings.radial_menu.button_size.value);
 			}
 		}
 	}
