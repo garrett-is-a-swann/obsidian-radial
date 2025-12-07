@@ -2,14 +2,21 @@
 import type { App, MarkdownView } from 'obsidian';
 import type { Action } from 'types/Action';
 import type { ActionGroup } from 'types/ActionGroup';
+
+interface Position {
+	x: number;
+	y: number;
+};
+
 interface Props {
 	actions: ActionGroup,
 	parent: HTMLElement,
 	app: App,
 	commands: any[], // TODO(Garrett): Use obsidian-typings for type info.
 	closeMenu: () => void,
-	setTarget?: (offset: { x: number, y: number }) => void,
+	setTarget?: (offset: Position, set: Boolean = false) => void,
 };
+
 const {
 	actions,
 	parent,
@@ -24,9 +31,9 @@ let width = $state();
 let height = $state();
 let buttonDiameter = $state();
 let radialWrapper = $state();
-let rotationAngle = $state([0]);
-
+let rotationAngle = $state([Math.PI * .5]); // Initial rotation so that menu unrolls from the top, like a clock.
 let actionStack = $state([ actions.items ]); // TODO(Garrett): figure out how to: svelte-ignore state_referenced_locally
+
 
 const buttonState = $state({
 	dragging: false,
@@ -35,15 +42,15 @@ const buttonState = $state({
 		y: 0,
 	},
 });
+const positionStack = $state([buttonState.offset])
 
 function deg(rads) {
 	return rads * (180 / Math.PI);
 }
 
-const performAction = (action)=> {
+const performAction = (action, position: Position)=> {
 	if (action.items === undefined) {
 		const command = commands[action];
-		console.log(action);
 		if (!command) {
 			// TODO(Garrett): Colorization/Pre-Verification commands are functional.
 			console.error("Unknown command:", command);
@@ -62,12 +69,15 @@ const performAction = (action)=> {
 	}
 	else {
 		if (setTarget) {
-			setTarget(buttonState.offset)
 			if (action.items === null) {
 				rotationAngle.pop();
+				positionStack.pop();
+				setTarget(positionStack[positionStack.length - 1], true);
 			} else {
-				const rads = Math.atan2(-buttonState.offset.y, buttonState.offset.x);
+				const rads = Math.atan2(-position.y, position.x);
 				rotationAngle.push(rads + Math.PI)
+				positionStack.push(position)
+				setTarget(position, false);
 			}
 		}
 
@@ -120,7 +130,7 @@ const performAction = (action)=> {
 			buttonState.dragging = false;
 		}
 	}}>
-	{deg(rotationAngle)}
+	{positionStack[positionStack.length - 1].x}, {positionStack[positionStack.length - 1].y} | {Math.round(deg(rotationAngle[rotationAngle.length - 1]) * 10) / 10}
 	<button 
 		aria-label='radial-draggable-button'
 		bind:clientWidth={buttonDiameter}
@@ -161,29 +171,34 @@ const performAction = (action)=> {
 			}
 			buttonState.offset = {x: 0, y: 0};
 		}}>
-		{buttonState.offset.x}, {-buttonState.offset.y} | {deg(Math.atan2(-buttonState.offset.y, buttonState.offset.x))}
+		{buttonState.offset.x}, {-buttonState.offset.y} | {deg(Math.atan2(buttonState.offset.y, buttonState.offset.x))}
 	</button>
 	{#each actionStack[actionStack.length - 1] as action, index (action)}
 		{@const centerX = width / 2}
 		{@const centerY = height / 2}
-		{@const angleIncrement = (2 * Math.PI) / actionStack[actionStack.length - 1].length}
+		{@const angleIncrement = -(2 * Math.PI) / actionStack[actionStack.length - 1].length}
 		{@const currentAngle = index * angleIncrement + rotationAngle[rotationAngle.length - 1]}
-		{@const ratioY = Math.sin(currentAngle)}
 		{@const ratioX = Math.cos(currentAngle)}
-		<button 
+		{@const ratioY = Math.sin(currentAngle)}
+		{@const posX = (1-ratioX) * centerX}
+		{@const posY = (1-ratioY) * centerY}
+		{@const offsetX = (width / 2 - posX)}
+		{@const offsetY = -(height / 2 - posY)}
+		<button
 			class={['radial-item', {'radial-item-action': action.items === undefined, 'radial-items-group': !!action.items, 'radial-items-pop': action.items === null}]}
 			role='menuitem'
 			tabindex='0'
 			style:border-radius={action?.items === undefined && `${buttonDiameter / 2}px`}
 			style:width='{buttonDiameter / 2 * 2}px'
 			style:height='{buttonDiameter / 2 * 2}px'
-			style:top  ="{(1-ratioY) * centerY - (buttonDiameter / 2)}px"
-			style:right="{(1-ratioX) * centerX - (buttonDiameter / 2)}px"
-			onmousemove={()=> buttonState.dragging && performAction(action)}
-			onclick={() => performAction(action)}>
+			style:top  ="{posY - (buttonDiameter / 2)}px"
+			style:right="{posX - (buttonDiameter / 2)}px"
+			onmousemove={()=> buttonState.dragging && performAction(action, {x: offsetX, y: offsetY})}
+			onclick={() => performAction(action, {x: offsetX, y: offsetY})}>
 			<span class='radial-item-body'>
-				{Math.round(deg(angleIncrement) * 10) / 10}
-				{Math.round(deg(currentAngle) * 10) / 10}
+				<div>{Math.round(offsetX)}, {Math.round(offsetY)}</div>
+				<div>{Math.round(deg(currentAngle))}</div>
+				 
 				{#if action.items === undefined}
 					{action.substr(0, 5)}
 				{:else}
@@ -196,7 +211,7 @@ const performAction = (action)=> {
 
 <style>
 .radial-wrapper {
-	/* Width/Height control the "padding" of the radial menu -- top/right computed based on clientWidth*/
+	/* Width/Height control the "padding" of the radial menu -- top/right computed based on clientWidth */
 	width: 90%;
 	height: 90%;
 

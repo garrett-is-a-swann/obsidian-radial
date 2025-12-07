@@ -306,10 +306,16 @@ class RadialModal extends Modal {
 				closeMenu: () => {
 					this.close();
 				},
-				setTarget: this.plugin.settings.radial_menu.radial_retargeting.value && ((offset: { x: number, y: number }) => {
+				setTarget: this.plugin.settings.radial_menu.radial_retargeting.value && ((offset: { x: number, y: number }, set: boolean = false) => {
+					if (set) {
+						parent.style.left = `${offset.x}px`;
+						parent.style.top = `${offset.y}px`;
+					}
+					console.log(offset);
 					const px_regex = /(-?[0-9]*(?:\.[0-9]*)?)px/;
 					const left_match = parent.style.left.match(px_regex);
 					if (left_match) {
+						console.log(left_match[1], "+", offset.x);
 						parent.style.left = `${parseFloat(left_match[1]) + offset.x}px`;
 					}
 					else {
@@ -321,6 +327,7 @@ class RadialModal extends Modal {
 
 					const top_match = parent.style.top?.match(px_regex);
 					if (top_match) {
+						console.log(top_match[1], "+", offset.y);
 						parent.style.top = `${parseFloat(top_match[1]) + offset.y}px`;
 					} else {
 						if (parent.style.top) {
