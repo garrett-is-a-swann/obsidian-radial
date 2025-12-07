@@ -66,7 +66,44 @@ const TEMPORARY_CONFIGURATION_CHANGE_ME = {
 				name: "Close",
 				items: [
 					"workspace:close-tab-group",
-					"workspace:close-others-tab-group"
+					"workspace:close-others-tab-group",
+					{
+						name: "test",
+						items: [
+							{
+								name: "c.t.0",
+								items: [
+									{
+										name: "c.t.0.0",
+										items: [
+											"command-palette:open",
+											"command-palette:open",
+											"command-palette:open",
+										]
+									},
+									"command-palette:open",
+									"command-palette:open",
+									"command-palette:open",
+								]
+							},
+							{
+								name: "c.t.1",
+								items: [
+									"command-palette:open",
+									"command-palette:open",
+									"command-palette:open",
+								]
+							},
+							{
+								name: "c.t.1",
+								items: [
+									"command-palette:open",
+									"command-palette:open",
+									"command-palette:open",
+								]
+							}
+						]
+					}
 				]
 			}
 		]
@@ -257,6 +294,8 @@ class RadialModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
+
+		const parent = contentEl.parentElement as HTMLElement;
 		this.ref = mount(RadialMenu, {
 			target: contentEl,
 			props: {
@@ -266,11 +305,33 @@ class RadialModal extends Modal {
 				commands: (this.app as any).commands.commands, // Internal API - TODO(Garrett): Add obsidian-typings
 				closeMenu: () => {
 					this.close();
-				}
+				},
+				setTarget: this.plugin.settings.radial_menu.radial_retargetting.value && ((offset: { x: number, y: number }) => {
+					const px_regex = /(-?[0-9]*(?:\.[0-9]*)?)px/;
+					const left_match = parent.style.left.match(px_regex);
+					if (left_match) {
+						parent.style.left = `${parseFloat(left_match[1]) + offset.x}px`;
+					}
+					else {
+						if (parent.style.left) {
+							console.error("RadialRetargeting Error - Modal left has no px:", parent.style.left);
+						}
+						parent.style.left = `${offset.x}px`;
+					}
+
+					const top_match = parent.style.top?.match(px_regex);
+					if (top_match) {
+						parent.style.top = `${parseFloat(top_match[1]) + offset.y}px`;
+					} else {
+						if (parent.style.top) {
+							console.error("RadialRetargeting Error - Modal top has no px:", parent.style.top);
+						}
+						parent.style.top = `${offset.y}px`;
+					}
+				}),
 			}
 		});
 
-		const parent = contentEl.parentElement;
 		if (parent) {
 			parent.classList.add("radial-menu")
 			if (this.plugin.settings.radial_menu.diameter.value) {

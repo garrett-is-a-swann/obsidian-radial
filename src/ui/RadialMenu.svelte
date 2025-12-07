@@ -8,6 +8,7 @@ interface Props {
 	app: App,
 	commands: any[], // TODO(Garrett): Use obsidian-typings for type info.
 	closeMenu: () => void,
+	setTarget?: (offset: { x: number, y: number }) => void,
 };
 const {
 	actions,
@@ -15,6 +16,8 @@ const {
 	app,
 	commands,
 	closeMenu,
+	nextAction,
+	setTarget,
 } = $props();
 
 let width = $state();
@@ -53,10 +56,15 @@ const performAction = (action)=> {
 		return;
 	}
 	else {
+		if (setTarget) {
+			setTarget(buttonState.offset)
+		}
 		actionStack.push([...action.items])
 	}
-	buttonState.dragging = false;
-	buttonState.offset = {x: 0, y: 0};
+	if (!setTarget) {
+		buttonState.dragging = false;
+		buttonState.offset = {x: 0, y: 0};
+	}
 }
 
 </script>

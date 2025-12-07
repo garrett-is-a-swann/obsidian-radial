@@ -1,8 +1,9 @@
 .radial-menu {
     border-radius: 50%;
-    width: 600px;
-    height: 600px;
+    width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
+    height: var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
     border: 15px solid #000;
+	overflow: hidden;
 	> .modal-content {
 		display: flex;
 		justify-content: center;
