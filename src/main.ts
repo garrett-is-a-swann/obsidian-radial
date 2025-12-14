@@ -2,6 +2,7 @@ import { App, Modal, Plugin, PluginSettingTab, Setting, } from 'obsidian';
 import type { TooltipOptions } from 'obsidian';
 import type { Position } from 'types/Position';
 import type { RadialMenuConfiguration } from 'types/RadialMenuConfiguration';
+import { hasKey } from 'utils/type/hasKey'
 
 import { mount, unmount } from 'svelte';
 import RadialMenu from 'ui/RadialMenu.svelte'
@@ -287,7 +288,10 @@ class SettingsRoot extends PluginSettingTab {
         }
 
         for (const setting of Object.values(settings)) {
-            const setting_type = Number(settings?.type as number | undefined);
+            if (!hasKey(setting, "type")) {
+                continue;
+            }
+            const setting_type = Number(setting?.type);
             if (setting_type as FormFieldType >= FormFieldType.LAST) {
                 this.coalesceFormFields(setting, form_fields);
             }
