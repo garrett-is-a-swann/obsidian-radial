@@ -1,10 +1,12 @@
-import { App, Modal, Plugin, PluginSettingTab, Setting, TooltipOptions } from 'obsidian';
+import { App, Modal, Plugin, PluginSettingTab, Setting, } from 'obsidian';
+import type { TooltipOptions } from 'obsidian';
 import type { Position } from 'types/Position';
+import type { RadialMenuConfiguration } from 'types/RadialMenuConfiguration';
 
 import { mount, unmount } from 'svelte';
 import RadialMenu from 'ui/RadialMenu.svelte'
 
-import type { ActionGroup } from 'types/ActionGroup'
+import { applyConfiguration } from 'utils/parse/applyConfiguration';
 
 const CSS_CUSTOM_PROPERTIES = {
     RADIAL_MENU_DIAMETER: {
@@ -19,97 +21,6 @@ const CSS_CUSTOM_PROPERTIES = {
     },
 }
 
-enum ConfigurationFormat {
-    Markdown,
-    YAML,
-};
-
-const TEMPORARY_CONFIGURATION_CHANGE_ME = {
-    format: ConfigurationFormat.YAML,
-    actions: {
-        items: [
-            "command-palette:open",
-            "editor:focus",
-            "global-search:open",
-            "editor:context-menu",
-            "switcher:open",
-            "app:go-back",
-            "app:go-forward",
-            "spacekeys:repeat-last",
-            {
-                name: "Workspace",
-                items: [
-                    "editor:focus",
-                    "workspace:close",
-                    "file-explorer:open",
-                    "editor:focus-left",
-                    "editor:focus-right",
-                    "editor:focus-top",
-                    "editor:focus-bottom",
-                    "workspace:next-tab",
-                    "workspace:new-tab",
-                    "outline:open",
-                    "workspace:previous-tab",
-                    "workspace:toggle-pin",
-                    "workspace:split-horizontal",
-                    "workspace:toggle-stacked-tabs",
-                    "tag-pane:open",
-                    "workspace:undo-close-pane",
-                    "workspace:split-vertical",
-                    "app:toggle-left-sidebar",
-                    "app:toggle-right-sidebar",
-                    "app:toggle-ribbon",
-                    "workspace:open-in-new-window",
-                    "workspace:move-to-new-window"
-                ]
-            },
-            {
-                name: "Close",
-                items: [
-                    "workspace:close-tab-group",
-                    "workspace:close-others-tab-group",
-                    {
-                        name: "test",
-                        items: [
-                            {
-                                name: "c.t.0",
-                                items: [
-                                    {
-                                        name: "c.t.0.0",
-                                        items: [
-                                            "command-palette:open",
-                                            "command-palette:open",
-                                            "command-palette:open",
-                                        ]
-                                    },
-                                    "command-palette:open",
-                                    "command-palette:open",
-                                    "command-palette:open",
-                                ]
-                            },
-                            {
-                                name: "c.t.1",
-                                items: [
-                                    "command-palette:open",
-                                    "command-palette:open",
-                                    "command-palette:open",
-                                ]
-                            },
-                            {
-                                name: "c.t.1",
-                                items: [
-                                    "command-palette:open",
-                                    "command-palette:open",
-                                    "command-palette:open",
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-}
 
 // TODO(Garrett): Handle more types: https://docs.obsidian.md/Reference/TypeScript+API/Setting#Methods
 enum FormFieldType {
@@ -133,26 +44,26 @@ interface MandatoryDetails {
     description: string;
 }
 
-type OptionalDetails = Partial<MandatoryDetails>
-
 interface SettingFormTextField extends FormField<FormFieldType.String, string>, MandatoryDetails {
     placeholder?: string;
-    callback?: (plugin: Plugin, previous: string, next: string) => string
+    callback?: (plugin: Plugin, previous: string | undefined, next: string) => string | Promise<string>
 };
+
+type OptionalDetails = Partial<MandatoryDetails>
 
 interface SettingFormButtonField extends FormField<FormFieldType.Button, null>, OptionalDetails {
     text: string;
-    callback: (plugin: Plugin) => (evt: MouseEvent) => unknown | Promise<unknown>;
-    class?: string | ((plugin: Plugin) => string);
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+    callback: (plugin: Plugin) => (evt: MouseEvent) => unknown | Promise<unknown>; class?: string | ((plugin: Plugin) => string); // https://docs.obsidian.md/Reference/TypeScript+API/ButtonComponent/onClick
     // icon
     // cta
-    is_warning?: Boolean | ((plugin: Plugin) => Boolean); // TODO(Garrett): should allow promise-based?
-    is_disabled?: Boolean | ((plugin: Plugin) => Boolean);
+    is_warning?: ((plugin: Plugin) => boolean);
+    is_disabled?: ((plugin: Plugin) => boolean);
     // tooltip
 }
 
-interface SettingFormToggleField extends FormField<FormFieldType.Toggle, Boolean>, MandatoryDetails {
-    tooltip?: { text: String, options?: TooltipOptions };
+interface SettingFormToggleField extends FormField<FormFieldType.Toggle, boolean>, MandatoryDetails {
+    tooltip?: { text: string, options?: TooltipOptions };
     //is_disabled?: Boolean | ((plugin: Plugin) => Boolean);
 }
 
@@ -167,10 +78,7 @@ interface RadialFormSettings {
 };
 
 interface RadialSettings extends RadialFormSettings {
-    configuration?: {
-        actions: ActionGroup;
-        format: ConfigurationFormat;
-    };
+    configuration?: RadialMenuConfiguration;
     reset_configuration_button: SettingFormButtonField;
 }
 
@@ -181,24 +89,8 @@ const DEFAULT_SETTINGS: RadialFormSettings = {
         value: undefined,
         description: 'Path to a yaml or md file with yaml body, designating the radial menu configuration.',
         placeholder: 'path/to/some.yaml',
-        callback: (plugin: RadialPlugin, _previous: string, next: string) => {
-            if (next.toLowerCase().endsWith('.yaml') || next.toLowerCase().endsWith('.yml')) {
-                // TODO Parse the file.
-                plugin.settings.configuration = {
-                    format: ConfigurationFormat.YAML,
-                    actions: plugin.settings.configuration?.actions ?? {
-                        items: []
-                    }
-                };
-            } else {
-                // TODO Parse the file.
-                plugin.settings.configuration = {
-                    format: ConfigurationFormat.YAML,
-                    actions: plugin.settings.configuration?.actions ?? {
-                        items: []
-                    }
-                };
-            }
+        callback: async (plugin: RadialPlugin, _previous: string, next: string) => {
+            await checkConfiguration(plugin.app, plugin.settings)
             return next;
         }
     },
@@ -236,12 +128,11 @@ const RADIAL_SETTINGS_CONFIGURATION: Partial<RadialSettings> = {
                 {},
                 DEFAULT_SETTINGS,
                 RADIAL_SETTINGS_CONFIGURATION,
-                { configuration: TEMPORARY_CONFIGURATION_CHANGE_ME },
             ) as RadialSettings;
             await plugin.saveSettings();
         },
-        is_warning: true,
-    }
+        is_warning: () => true,
+    },
 }
 
 export default class RadialPlugin extends Plugin {
@@ -253,6 +144,7 @@ export default class RadialPlugin extends Plugin {
         this.addCommand({
             id: 'open-radial-menu',
             name: 'Open radial menu',
+            icon: 'life-buoy',
             callback: () => {
                 new RadialModal(this.app, this).open();
             }
@@ -267,17 +159,13 @@ export default class RadialPlugin extends Plugin {
     }
 
     async loadSettings() {
-        // TODO(Garrett): This isn't going to cut it.... per-field configuration versioning could be a good idea... low priority....
-        // I see why people add a refresh button.
-        //
-        // UPDATE: Now that i have coalesceFormFields, I can probably just save {path.to.value: value, ...} as cached state, and marshall to avoid caching actual config.
+        // TODO(Garrett): use coalesceFormFields to save {path.to.value: value, ...} as cached state, and marshall to avoid caching actual config.
         this.settings = Object.assign(
             {},
             DEFAULT_SETTINGS,
             await this.loadData(),
             RADIAL_SETTINGS_CONFIGURATION,
-            { configuration: TEMPORARY_CONFIGURATION_CHANGE_ME },
-        );
+        ) as typeof this.settings;
     }
 
     async saveSettings() {
@@ -285,42 +173,85 @@ export default class RadialPlugin extends Plugin {
     }
 }
 
+async function checkConfiguration(app: App, settings: RadialSettings) {
+    if (settings.configuration_path.value === undefined) {
+        console.error("obsidian-radial has no configuration path defined!")
+        return false;
+    }
+
+    // Check if configuration is up to date.
+    const file = app.vault.getFileByPath(settings.configuration_path.value);
+    if (!file) {
+        // TODO(Garrett): Show error information to user.
+        console.error("File not found:", settings.configuration_path.value)
+        return false;
+    }
+
+    if (!settings.configuration) {
+        settings.configuration = {
+            format: 0,
+            actions: { items: [] },
+            updatedAt: 0,
+        };
+    }
+
+    const contents = await app.vault.cachedRead(file);
+    if (settings.configuration.updatedAt <= file.stat.mtime) {
+        applyConfiguration(settings.configuration, settings.configuration_path.value, contents);
+    }
+    return true;
+}
+
 class RadialModal extends Modal {
-    ref: Record<string, any>;
+    ref: Record<string, unknown>;
     plugin: RadialPlugin;
     constructor(app: App, plugin: RadialPlugin) {
         super(app);
         this.plugin = plugin;
     }
 
-    onOpen() {
+    async onOpen() {
         const { contentEl } = this;
 
-        const parent = contentEl.parentElement as HTMLElement;
+        if (!await checkConfiguration(this.plugin.app, this.plugin.settings)) {
+            this.close();
+            return;
+        }
+
+        const {
+            configuration, radial_menu,
+        } = this.plugin.settings;
+
+
+        const parent = contentEl.parentElement!;
         this.ref = mount(RadialMenu, {
             target: contentEl,
             props: {
-                actions: this.plugin.settings.configuration?.actions,
+                actions: configuration!.actions,
                 parent: contentEl,
                 app: this.app,
-                commands: (this.app as any).commands.commands, // Internal API - TODO(Garrett): Add obsidian-typings
+                // eslint-disable-next-line
+                commands: (this.app as any)?.commands?.commands, //  Internal API - TODO(Garrett): Add obsidian-typings
                 closeMenu: () => {
                     this.close();
                 },
-                setTarget: this.plugin.settings.radial_menu.radial_retargeting.value && ((offset: Position) => {
+                setTarget: radial_menu.radial_retargeting.value ? ((offset: Position) => {
                     parent.style.left = `${offset.x}px`;
                     parent.style.top = `${offset.y}px`;
-                }),
+                }) : undefined,
             }
         });
 
         if (parent) {
             parent.classList.add("radial-menu")
-            if (this.plugin.settings.radial_menu.diameter.value) {
-                parent.style.setProperty(CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.internal, this.plugin.settings.radial_menu.diameter.value);
+            if (radial_menu.diameter.value) {
+                parent.style.setProperty(CSS_CUSTOM_PROPERTIES.RADIAL_MENU_DIAMETER.internal, radial_menu.diameter.value);
             }
-            if (this.plugin.settings.radial_menu.diameter.value) {
-                parent.style.setProperty(CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.internal, this.plugin.settings.radial_menu.button_size.value);
+            if (radial_menu.diameter.value) {
+                parent.style.setProperty(
+                    CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.internal,
+                    radial_menu.button_size.value ?? null
+                );
             }
         }
     }
@@ -328,11 +259,16 @@ class RadialModal extends Modal {
     onClose() {
         const { contentEl } = this;
         if (this.ref) {
-            unmount(this.ref);
+            void (unmount(this.ref));
         }
         contentEl.empty();
     }
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
 
 class SettingsRoot extends PluginSettingTab {
     plugin: RadialPlugin;
@@ -342,20 +278,21 @@ class SettingsRoot extends PluginSettingTab {
         this.plugin = plugin;
     }
 
-    private coalesceFormFields(settings: any = undefined, form_fields: FormField<any, any>[] | undefined = undefined) {
-        if (!settings) {
-            settings = this.plugin.settings;
-        }
+    private coalesceFormFields<T>(settings: T, form_fields: (SettingFormTextField | SettingFormButtonField | SettingFormToggleField)[] | undefined = undefined) {
         if (!form_fields) {
             form_fields = [];
         }
+        if (!isRecord(settings)) {
+            throw new Error("Bad config!");
+        }
 
-        for (const setting of Object.values(settings) as any[]) {
-            if (setting?.type >= FormFieldType.LAST) {
+        for (const setting of Object.values(settings)) {
+            const setting_type = Number(settings?.type as number | undefined);
+            if (setting_type as FormFieldType >= FormFieldType.LAST) {
                 this.coalesceFormFields(setting, form_fields);
             }
-            else if (setting.type !== undefined) {
-                form_fields.push(setting);
+            else if (setting_type !== undefined) {
+                form_fields.push(setting as (SettingFormTextField | SettingFormButtonField | SettingFormToggleField));
             }
         }
         return form_fields;
@@ -366,9 +303,9 @@ class SettingsRoot extends PluginSettingTab {
 
         containerEl.empty();
 
-        for (const element of this.coalesceFormFields()) {
+        for (const element of this.coalesceFormFields(this.plugin.settings)) {
             if (element.type === FormFieldType.String) {
-                const { name, description, placeholder, callback } = element as SettingFormTextField;
+                const { name, description, placeholder, callback } = element;
                 new Setting(containerEl)
                     .setName(name)
                     .setDesc(description)
@@ -376,7 +313,9 @@ class SettingsRoot extends PluginSettingTab {
                         text
                             .setValue(element.value ?? "")
                             .onChange(async (next_value: string) => {
-                                element.value = callback ? callback(this.plugin, element.value, next_value) : next_value || undefined;
+                                element.value = callback
+                                    ? await callback(this.plugin, element.value, next_value)
+                                    : next_value || undefined;
                                 await this.plugin.saveSettings();
                             });
                         if (placeholder) {
@@ -385,13 +324,13 @@ class SettingsRoot extends PluginSettingTab {
                     });
             }
             if (element.type === FormFieldType.Button) {
-                const { name, description, text, callback, is_warning } = element as Omit<SettingFormButtonField, "is_warning"> & { is_warning: Boolean & ((plugin: Plugin) => Boolean) };
+                const { name, description, text, callback, is_warning } = element;
                 const setting = new Setting(containerEl)
                     .addButton((button) => {
                         button
                             .setButtonText(text)
                             .onClick(callback(this.plugin));
-                        if (is_warning?.call ? is_warning(this.plugin) : is_warning) {
+                        if (is_warning && is_warning(this.plugin)) {
                             button.setWarning();
                         }
                     });
@@ -403,14 +342,14 @@ class SettingsRoot extends PluginSettingTab {
                 }
             }
             if (element.type === FormFieldType.Toggle) {
-                const { name, description, tooltip, /*is_disabled,*/ } = element as SettingFormToggleField;
+                const { name, description, tooltip, /*is_disabled,*/ } = element;
                 new Setting(containerEl)
                     .setName(name)
                     .setDesc(description)
                     .addToggle(toggle => {
                         toggle
                             .setValue(element.value ?? false)
-                            .onChange(async (next_value: Boolean) => {
+                            .onChange(async (next_value: boolean) => {
                                 element.value = next_value;
                                 await this.plugin.saveSettings();
                             });

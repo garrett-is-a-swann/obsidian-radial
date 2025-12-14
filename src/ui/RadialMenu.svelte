@@ -1,14 +1,17 @@
 <script lang="ts">
-    import type { App, MarkdownView } from "obsidian";
+    import { App, MarkdownView } from "obsidian";
     import type { Action } from "types/Action";
     import type { ActionGroup } from "types/ActionGroup";
+    import { isAction } from "utils/type/isAction";
+    import { isActionGroup } from "utils/type/isActionGroup";
     import type { Position } from "types/Position";
 
     interface Props {
         actions: ActionGroup;
         parent: HTMLElement;
         app: App;
-        commands: any[]; // TODO(Garrett): Use obsidian-typings for type info.
+        // eslint-disable-next-line
+        commands: { [key: string]: any }; // TODO(Garrett): Use obsidian-typings for type info.
         closeMenu: () => void;
         setTarget?: (offset: Position) => void;
     }
@@ -20,17 +23,26 @@
         menuOffset: Position;
     }
 
-    const { actions, parent, app, commands, closeMenu, nextAction, setTarget } =
-        $props();
+    const {
+        actions,
+        parent: _parent,
+        app,
+        commands,
+        closeMenu,
+        setTarget,
+    }: Props = $props();
 
-    let width = $state();
-    let height = $state();
-    let buttonDiameter = $state();
-    let radialWrapper = $state();
-    const stateStack = $state([
+    let width: number = $state(0);
+    let height: number = $state(0);
+    let buttonDiameter: number = $state(0);
+    let radialWrapper: HTMLElement = $state() as HTMLElement;
+    const stateStack: StackState[] = $state([
         {
-            actions: actions.items,
-            rotationRadians: Math.PI * 0.5, // Initial rotation so that menu unrolls from the top, like a clock.
+            get actions() {
+                return actions;
+            },
+            // Initial rotation so that menu unrolls from the top, like a clock.
+            rotationRadians: Math.PI * 0.5,
             menuOffset: { x: 0, y: 0 },
         },
     ]);
@@ -40,73 +52,83 @@
             return stack[stack.length - 1];
         },
     };
-    stateStack.top = () => stateStack[stateStack.length - 1];
 
     const buttonState = $state({
         dragging: false,
         offset: stack.top(stateStack).menuOffset,
     });
 
-    const debug = {
-        deg(rads: number) {
-            return rads * (180 / Math.PI);
-        },
-        round(value: number, places: number = 10) {
-            return Math.round(value * places) / places;
-        },
-    };
-
-    const performAction = (action, position: Position) => {
-        if (action.items === undefined) {
-            const command = commands[action];
-            if (!command) {
-                // TODO(Garrett): Colorization/Pre-Verification commands are functional.
-                console.error("Unknown command:", command);
-            }
-            if (command.callback) {
-                command.callback();
-            } else if (command.checkCallback) {
-                command.checkCallback(false);
-            } else if (command.editorCheckCallback) {
-                command.editorCheckCallback(
-                    false,
-                    app.workspace.activeEditor,
-                    app.workspace.getActiveViewOfType<MarkdownView>(),
-                );
-            }
-            closeMenu();
-            return;
-        } else {
-            const nextState: Partial<StackState> = {};
-            if (action.items !== null) {
-                nextState.actions = [
-                    {
-                        name: "Back",
-                        items: null,
-                    },
-                    ...action.items,
-                ];
-                if (setTarget) {
-                    const rads = Math.atan2(-position.y, position.x);
-                    const currentOffset = $state.snapshot(
-                        stack.top(stateStack).menuOffset,
-                    );
-                    nextState.rotationRadians = rads + Math.PI;
-                    nextState.menuOffset = {
-                        x: currentOffset.x + position.x,
-                        y: currentOffset.y + position.y,
-                    };
-
-                    setTarget(nextState.menuOffset);
+    const performAction = (
+        action: Action | ActionGroup,
+        position: Position,
+    ) => {
+        if (isAction(action)) {
+            const commandId = (action as Action).id;
+            if (commandId.startsWith("psuedo-element")) {
+                switch (commandId) {
+                    case "psuedo-element:back":
+                        // "Back" psuedo-element, should pop instead.
+                        stateStack.pop();
+                        if (setTarget) {
+                            setTarget(stack.top(stateStack).menuOffset);
+                        }
+                        break;
+                    default:
+                        throw new Error(
+                            "Radial Error - Unexpected Psuedo-element: " +
+                                commandId,
+                        );
                 }
-                stateStack.push(nextState);
             } else {
-                // "Back" psuedo-element, should pop instead.
-                const prevState = stateStack.pop();
-                if (setTarget) {
-                    setTarget(stack.top(stateStack).menuOffset);
+                const command = commands[commandId];
+                if (!command) {
+                    // TODO(Garrett): Colorization/Pre-Verification commands are functional.
+                    console.error("Unknown command:", command);
                 }
+                if (command.callback) {
+                    command.callback();
+                } else if (command.checkCallback) {
+                    command.checkCallback(false);
+                } else if (command.editorCheckCallback) {
+                    command.editorCheckCallback(
+                        false,
+                        app.workspace.activeEditor,
+                        app.workspace.getActiveViewOfType(MarkdownView),
+                    );
+                }
+                closeMenu();
+                return;
             }
+        } else {
+            const { items, ...rest } = action as ActionGroup;
+            const nextState = {
+                rotationRadians: stack.top(stateStack).rotationRadians,
+                menuOffset: { x: 0, y: 0 },
+                actions: {
+                    ...rest,
+                    items: [
+                        {
+                            id: "psuedo-element:back",
+                            name: "Back",
+                        },
+                        ...items,
+                    ],
+                },
+            };
+
+            const rads = Math.atan2(-position.y, position.x);
+            nextState.rotationRadians = rads + Math.PI;
+
+            if (setTarget) {
+                const currentOffset = stack.top(stateStack).menuOffset;
+                nextState.menuOffset = {
+                    x: currentOffset.x + position.x,
+                    y: currentOffset.y + position.y,
+                };
+
+                setTarget(nextState.menuOffset);
+            }
+            stateStack.push(nextState);
         }
         if (!setTarget) {
             buttonState.dragging = false;
@@ -124,7 +146,7 @@
     bind:clientHeight={height}
     onmouseenter={(event) => {
         if (buttonState.dragging) {
-            const modal = radialWrapper.parentElement.parentElement;
+            const modal = radialWrapper.parentElement!.parentElement!;
             const modalStyle = getComputedStyle(modal);
             const radialBox = modal.getBoundingClientRect();
             buttonState.offset = {
@@ -139,7 +161,7 @@
             };
         }
     }}
-    onmouseleave={(event) => {
+    onmouseleave={(_event) => {
         if (buttonState.dragging) {
             buttonState.offset = {
                 x: 0,
@@ -171,13 +193,10 @@
                         buttonDiameter / 2,
                 };
 
+                const modal = radialWrapper.parentElement!.parentElement!;
                 // boundary detection
                 const modalRadius =
-                    parseFloat(
-                        getComputedStyle(
-                            radialWrapper.parentElement.parentElement,
-                        ).width,
-                    ) / 2;
+                    parseFloat(getComputedStyle(modal).width) / 2;
                 const distance = Math.sqrt(next.x * next.x + next.y * next.y);
                 if (distance + buttonDiameter / 2 > modalRadius) {
                     const shift = distance - modalRadius + buttonDiameter / 2;
@@ -209,11 +228,11 @@
         }}
     >
     </button>
-    {#each stack.top(stateStack).actions as action, index (`${action}-${index}`)}
+    {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}
         {@const centerX = width / 2}
         {@const centerY = height / 2}
         {@const angleIncrement =
-            -(2 * Math.PI) / stack.top(stateStack).actions.length}
+            -(2 * Math.PI) / stack.top(stateStack).actions.items.length}
         {@const currentAngle =
             index * angleIncrement + stack.top(stateStack).rotationRadians}
         {@const ratioX = Math.cos(currentAngle)}
@@ -226,15 +245,20 @@
             class={[
                 "radial-item",
                 {
-                    "radial-item-action": action.items === undefined,
-                    "radial-items-group": !!action.items,
-                    "radial-items-pop": action.items === null,
+                    "radial-item-action": isAction(action),
+                    "radial-items-group":
+                        isActionGroup(action) ||
+                        isAction(action)?.id === "psuedo-element:back",
+                    "radial-items-pop":
+                        isAction(action)?.id === "psuedo-element:back",
                 },
             ]}
             role="menuitem"
             tabindex="0"
-            style:border-radius={action?.items === undefined &&
-                `${buttonDiameter / 2}px`}
+            style:border-radius={isAction(action)?.id &&
+            isAction(action)?.id !== "psuedo-element:back"
+                ? `${buttonDiameter / 2}px`
+                : undefined}
             style:width="{buttonDiameter}px"
             style:height="{buttonDiameter}px"
             style:top="{posY - buttonDiameter / 2}px"
@@ -245,11 +269,7 @@
             onclick={() => performAction(action, { x: offsetX, y: offsetY })}
         >
             <span class="radial-item-body">
-                {#if action.items === undefined}
-                    {action.substr(0, 5)}
-                {:else}
-                    {action.name.substr(0, 5)}
-                {/if}
+                {action.name?.slice(0, 5) ?? "Unknown"}
             </span>
         </button>
     {/each}
