@@ -46,7 +46,7 @@ interface MandatoryDetails {
 
 interface SettingFormTextField extends FormField<FormFieldType.String, string>, MandatoryDetails {
     placeholder?: string;
-    callback?: (plugin: Plugin, previous: string, next: string) => string | Promise<string>
+    callback?: (plugin: Plugin, previous: string | undefined, next: string) => string | Promise<string>
 };
 
 type OptionalDetails = Partial<MandatoryDetails>
@@ -90,19 +90,7 @@ const DEFAULT_SETTINGS: RadialFormSettings = {
         description: 'Path to a yaml or md file with yaml body, designating the radial menu configuration.',
         placeholder: 'path/to/some.yaml',
         callback: async (plugin: RadialPlugin, _previous: string, next: string) => {
-            const file = plugin.app.vault.getFileByPath(next);
-            if (!file) {
-                // TODO(Garrett): Show error information to user.
-                console.warn("File not found:", next)
-                return next;
-            }
-            const contents = await plugin.app.vault.cachedRead(file);
-            plugin.settings.configuration = applyConfiguration({
-                updatedAt: file.stat.mtime,
-            },
-                next,
-                contents
-            )
+            await checkConfiguration(plugin.app, plugin.settings)
             return next;
         }
     },
@@ -185,6 +173,35 @@ export default class RadialPlugin extends Plugin {
     }
 }
 
+async function checkConfiguration(app: App, settings: RadialSettings) {
+    if (settings.configuration_path.value === undefined) {
+        console.error("obsidian-radial has no configuration path defined!")
+        return false;
+    }
+
+    // Check if configuration is up to date.
+    const file = app.vault.getFileByPath(settings.configuration_path.value);
+    if (!file) {
+        // TODO(Garrett): Show error information to user.
+        console.error("File not found:", settings.configuration_path.value)
+        return false;
+    }
+
+    if (!settings.configuration) {
+        settings.configuration = {
+            format: 0,
+            actions: { items: [] },
+            updatedAt: 0,
+        };
+    }
+
+    const contents = await app.vault.cachedRead(file);
+    if (settings.configuration.updatedAt <= file.stat.mtime) {
+        applyConfiguration(settings.configuration, settings.configuration_path.value, contents);
+    }
+    return true;
+}
+
 class RadialModal extends Modal {
     ref: Record<string, unknown>;
     plugin: RadialPlugin;
@@ -196,37 +213,21 @@ class RadialModal extends Modal {
     async onOpen() {
         const { contentEl } = this;
 
-        const {
-            configuration_path, radial_menu,
-        } = this.plugin.settings;
-
-        if (configuration_path.value === undefined) {
-            console.error("obsidian-radial has no configuration path defined!")
+        if (!await checkConfiguration(this.plugin.app, this.plugin.settings)) {
             this.close();
             return;
         }
 
-        // Check if configuration is up to date.
-        const file = this.plugin.app.vault.getFileByPath(configuration_path.value);
-        if (!file) {
-            // TODO(Garrett): Show error information to user.
-            console.error("File not found:", configuration_path.value)
-            throw new Error("File not found: " + configuration_path.value);
-        }
-        const contents = await this.plugin.app.vault.cachedRead(file);
-        if (this.plugin.settings.configuration?.updatedAt ?? 0 <= file.stat.mtime) {
-            applyConfiguration(this.plugin.settings.configuration, configuration_path.value, contents);
-        }
-        const config = this.plugin.settings.configuration;
-        if (!config || !config.actions.items) {
-            throw new Error(`Radial Error - Failed to generate actions from File=${configuration_path.value}`);
-        }
+        const {
+            configuration, radial_menu,
+        } = this.plugin.settings;
+
 
         const parent = contentEl.parentElement!;
         this.ref = mount(RadialMenu, {
             target: contentEl,
             props: {
-                actions: config.actions,
+                actions: configuration!.actions,
                 parent: contentEl,
                 app: this.app,
                 // eslint-disable-next-line
@@ -234,10 +235,10 @@ class RadialModal extends Modal {
                 closeMenu: () => {
                     this.close();
                 },
-                setTarget: radial_menu.radial_retargeting.value && ((offset: Position) => {
+                setTarget: radial_menu.radial_retargeting.value ? ((offset: Position) => {
                     parent.style.left = `${offset.x}px`;
                     parent.style.top = `${offset.y}px`;
-                }),
+                }) : undefined,
             }
         });
 
@@ -264,6 +265,11 @@ class RadialModal extends Modal {
     }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+
 class SettingsRoot extends PluginSettingTab {
     plugin: RadialPlugin;
 
@@ -276,13 +282,17 @@ class SettingsRoot extends PluginSettingTab {
         if (!form_fields) {
             form_fields = [];
         }
+        if (!isRecord(settings)) {
+            throw new Error("Bad config!");
+        }
 
         for (const setting of Object.values(settings)) {
-            if (setting?.type >= FormFieldType.LAST) {
+            const setting_type = Number(settings?.type as number | undefined);
+            if (setting_type as FormFieldType >= FormFieldType.LAST) {
                 this.coalesceFormFields(setting, form_fields);
             }
-            else if (setting.type !== undefined) {
-                form_fields.push(setting);
+            else if (setting_type !== undefined) {
+                form_fields.push(setting as (SettingFormTextField | SettingFormButtonField | SettingFormToggleField));
             }
         }
         return form_fields;

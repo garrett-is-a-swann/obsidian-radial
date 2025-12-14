@@ -4,7 +4,7 @@ import { ConfigurationFormat } from 'types/ConfigurationFormat';
 import { parseYaml } from 'utils/parse/parseYaml';
 import { parseMd } from 'utils/parse/parseMd';
 
-export function applyConfiguration(configuration: Partial<RadialMenuConfiguration>, filename: string, contents: string): RadialMenuConfiguration {
+export function applyConfiguration(configuration: RadialMenuConfiguration, filename: string, contents: string): RadialMenuConfiguration {
     if (filename.toLowerCase().endsWith('.yaml') || filename.toLowerCase().endsWith('.yml')) {
         Object.assign(configuration, {
             format: ConfigurationFormat.YAML,
