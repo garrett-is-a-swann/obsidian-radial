@@ -8,7 +8,10 @@ import { isActionGroup } from "utils/type/isActionGroup";
 
 interface Props {
     action: Action;
+    index: number,
+    numSlices: number
     performAction: (_action: Action | ActionGroup, pos: Position) => void,
+    commands: { [key: string]: any }; // TODO(Garrett): Use obsidian-typings for type info.
     modalWidth: number;
     modalHeight: number;
     offsetAngle: number;
@@ -22,7 +25,10 @@ interface Props {
 
 const {
     action,
+    index,
+    numSlices,
     performAction,
+    commands,
     modalWidth,
     modalHeight,
     offsetAngle,
@@ -34,16 +40,10 @@ const {
     dragging,
 } = $props();
 
-const centerX = 50;
-const centerY = 50;
 
-// Circle radius as percentage of the square
-const outerR = 30;
-const ARC_STEPS = 8;
-
-function polar(angle: number, radius: number): [number, number] {
+function polar(angle: number, radius: number, offset: number = 0): [number, number] {
   return [
-    centerX + radius * Math.cos(angle),
+    offset + centerX + radius * Math.cos(angle),
     centerY + radius * Math.sin(angle),
   ];
 }
@@ -58,36 +58,68 @@ function insetPoint([x, y]: [number, number], t: number): [number, number] {
   ];
 }
 
-const R = 75;                 // outer radius
-const inset = 0.55;
+function deg(rad) {
+    return Math.floor(rad * 180 / Math.PI);
+}
+
+const centerX = 50;
+const centerY = 50;
+
+const deadzoneRadiusPct = 50 - 30;
+const ARC_STEPS = $derived(Math.floor(31 / numSlices) + 1);
+const OUTER_ARC_STEPS = $derived(Math.floor(19 / numSlices) + 1);
+const R = 50; // outer radius
+
+const angle = $derived(rotationAngle - offsetAngle);
+const outerCicle = Array.from({ length: 32 + 1 }, (_, i) => {
+    const t = lerp(-Math.PI * .3, Math.PI * .3, i / 32);
+    return polar(t, R,);
+});
+const innerCicle = Array.from({ length: 32 + 1 }, (_, i) => {
+    const t = lerp(Math.PI * .4, -Math.PI * .4, i / 32);
+    return polar(t, deadzoneRadiusPct);
+});
 
 const polygon = $derived.by(() => {
     const unit = "%";
-    const half = regionAngle / 2;
-    const a0 = offsetAngle + half;
-    const a1 = offsetAngle - half;
-    const A = polar(a0, R);
-    const B = polar(a1, R);
-
-    const C = insetPoint(B, inset);
-    const D = insetPoint(A, inset);
+    if (numSlices === 1) {
+        console.log("only 1");
+        const arcPath = [
+            ...outerCicle,
+            ...innerCicle,
+        ]
+        const polygon = `polygon(${arcPath.map(([x, y])=> `${Math.abs(x)}${unit} ${Math.abs(y)}${unit}`).join(", ")})`
+        return polygon;
+    }
+    const borderWidth = 1 * Math.PI / 180
+    const aLo = -regionAngle / 2;
+    const aHi = aLo + regionAngle - borderWidth;
+    const steps = isAction(action)? ARC_STEPS: 1
     const arcPath: [number, number][] = [
-        A,
-        B,
-        C,
-        D,
-        A,
+        // Outer
+        ...Array.from({ length: OUTER_ARC_STEPS + 1 }, (_, i) => {
+            const t = lerp(aLo, aHi, i / OUTER_ARC_STEPS);
+            return polar(t, R,);
+        }),
+        // Inset
+        ...Array.from({ length: steps + 1 }, (_, i) => {
+            const t = lerp(aHi, aLo, i / steps);
+            return polar(t, deadzoneRadiusPct);
+        }),
     ];
     const polygon = `polygon(${arcPath.map(([x, y])=> `${Math.abs(x)}${unit} ${Math.abs(y)}${unit}`).join(", ")})`
-    console.log(polygon)
     return polygon
 });
 
 const tryAction = $derived(() => {
     if (!dragging) 
         return;
-    const [x, y] = polar(offsetAngle, R);
-    performAction(action, { x, y })
+    const shiftRadius = (deadzoneRadiusPct/50) * +modalWidth.slice(0, -2) / 2;
+    const position = {
+        x: Math.cos(angle) * shiftRadius,
+        y: Math.sin(angle) * shiftRadius,
+    };
+    performAction(action, position)
 });
 
 </script>
@@ -106,9 +138,11 @@ const tryAction = $derived(() => {
     ]}
     role="menuitem"
     tabindex="0"
-    style:width={modalWidth}px
-    style:height={modalHeight}px
-    style:rotate={(rotationAngle - Math.PI * 0.5) * 180 / Math.PI}deg
+    style:--interactive-normal={action.color}
+    style:--interactive-hover={action.color? `color-mix(in oklab, ${action.color} 90%, white)`: undefined}
+    style:width={modalWidth}
+    style:height={modalWidth}
+    style:rotate={(angle) * 180 / Math.PI}deg
     style:clip-path={polygon}
     onmousemove={tryAction}
     onclick={() => performAction(action, { x: offsetX, y: offsetY })}
@@ -135,5 +169,8 @@ const tryAction = $derived(() => {
             rotate: -45deg;
         }
     }
+}
+.radial-item-detail {
+    position: relative;
 }
 </style>

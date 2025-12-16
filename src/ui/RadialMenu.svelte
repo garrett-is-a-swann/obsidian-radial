@@ -43,7 +43,8 @@
             menuOffset: { x: 0, y: 0 },
         },
     ]);
-    const modalStyle = $derived(parent.style);
+    const modalStyle = $derived(getComputedStyle(parent));
+    console.log(modalStyle.height, modalStyle.width);
     const stack = {
         top<T>(stack: T[]): T {
             return stack[stack.length - 1];
@@ -184,9 +185,8 @@
         {@const centerX = width / 2}
         {@const centerY = height / 2}
         {@const angleIncrement =
-            -(2 * Math.PI) / stack.top(stateStack).actions.items.length}
-        {@const currentAngle =
-            index * angleIncrement + stack.top(stateStack).rotationRadians}
+            (2 * Math.PI) / stack.top(stateStack).actions.items.length}
+        {@const currentAngle = index * angleIncrement}
         {@const ratioX = Math.cos(currentAngle)}
         {@const ratioY = Math.sin(currentAngle)}
         {@const posX = (1 - ratioX) * centerX}
@@ -196,11 +196,14 @@
         <OptionZone
             {action}
             {performAction}
+            {index}
+            numSlices={stack.top(stateStack).actions.items.length}
+            {commands}
             rotationAngle={currentAngle}
             offsetAngle={stack.top(stateStack).rotationRadians}
             regionAngle={angleIncrement}
             modalWidth={modalStyle.width}
-            modalHeight={modalStyle.height}
+            modalHeight={modalStyle.width}
             deadzoneDiameter={buttonDiameter}
             dragging={buttonState.dragging}
             {posX}
