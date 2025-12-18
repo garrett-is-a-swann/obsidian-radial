@@ -141,6 +141,7 @@ const icon = $derived(getIcon(iconName ?? 'aperture'));
     style:clip-path={polygon}
     style:box-shadow="{.75 * modalWidthPx}px 0 {.15 * modalWidthPx}px 0px inset color-mix(in srgb, {action.color ?? "transparent"} 60%, transparent)"
     onmousemove={() => tryAction()}
+    ontouchmove={() => tryAction()}
     onclick={() => tryAction(true)}
 >
     <span class="radial-item-body">

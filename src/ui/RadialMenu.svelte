@@ -136,6 +136,8 @@
     };
 
     function handleMove(x: number, y: number) {
+        console.log(x, y);
+        console.log($state.snapshot(width));
         if (!buttonState.dragging) {
             return;
         }
@@ -180,11 +182,19 @@
             buttonState.dragging = false;
         }
     }}
-    ontouchmove={(event: TouchEvent) =>
+    ontouchmove={(event: TouchEvent) => {
+        console.log(event);
+
+        const rect = radialWrapper.getBoundingClientRect();
+
+        // Calculate the center X and Y coordinates (relative to the viewport)
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
         handleMove(
-            event.changedTouches[0].screenX,
-            event.changedTouches[0].screenY,
-        )}
+            event.changedTouches[0].clientX - centerX - buttonState.offset.x,
+            event.changedTouches[0].clientY - centerY - buttonState.offset.y,
+        );
+    }}
     onmousemove={(event) => handleMove(event.movementX, event.movementY)}
     ontouchend={() => {
         buttonState.dragging = false;
@@ -200,7 +210,10 @@
         diameter={buttonDiameter}
         modalWidth={width}
         modalHeight={height}
-        setDrag={(drag: boolean) => (buttonState.dragging = drag)}
+        setDrag={(drag: boolean) => {
+            console.log("drag");
+            buttonState.dragging = drag;
+        }}
         offset={buttonState.offset}
     />
 
