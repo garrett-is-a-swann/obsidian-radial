@@ -1,16 +1,19 @@
 .radial-menu {
-	border-radius: 50%;
-	width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
-	height: var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
-	border: 15px solid #000;
-	overflow: hidden;
-	> .modal-content {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-	}
+    border-radius: 50%;
+    width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
+    height: var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
+    border: 15px solid #000;
+    overflow: hidden;
+    > .modal-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    > .modal-close-button.clickable-icon {
+        display: none;
+    }
 }
 
 .tooltip.go-away {
-	display: none;
+    display: none;
 }

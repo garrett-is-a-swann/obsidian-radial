@@ -3,7 +3,6 @@
     import type { Action } from "types/Action";
     import type { ActionGroup } from "types/ActionGroup";
     import { isAction } from "utils/type/isAction";
-    import { isActionGroup } from "utils/type/isActionGroup";
     import type { Position } from "types/Position";
 
     import MenuCursor from "ui/MenuCursor.svelte";
@@ -44,7 +43,6 @@
         },
     ]);
     const modalStyle = $derived(getComputedStyle(parent));
-    console.log(modalStyle.height, modalStyle.width);
     const stack = {
         top<T>(stack: T[]): T {
             return stack[stack.length - 1];
@@ -53,7 +51,7 @@
 
     const buttonState = $state({
         dragging: false,
-        offset: stack.top(stateStack).menuOffset,
+        offset: { ...stack.top(stateStack).menuOffset },
     });
 
     const performAction = (
@@ -125,16 +123,28 @@
                 };
 
                 setTarget(nextState.menuOffset);
+                buttonState.offset = {
+                    x: buttonState.offset.x - position.x,
+                    y: buttonState.offset.y - position.y,
+                };
             }
             stateStack.push(nextState);
         }
         if (!setTarget) {
             buttonState.dragging = false;
         }
-        buttonState.offset = { x: 0, y: 0 };
     };
 
-    $effect(() => console.log("in parent:", buttonDiameter));
+    function handleMove(x: number, y: number) {
+        if (!buttonState.dragging) {
+            return;
+        }
+
+        // TODO(Garrett): Solve race condition with handleMove overriding
+        //     button offset-fixing in performAction causing jumping cursor visual bug.
+        buttonState.offset.x += x;
+        buttonState.offset.y += y;
+    }
 </script>
 
 <div
@@ -170,6 +180,21 @@
             buttonState.dragging = false;
         }
     }}
+    ontouchmove={(event: TouchEvent) =>
+        handleMove(
+            event.changedTouches[0].screenX,
+            event.changedTouches[0].screenY,
+        )}
+    onmousemove={(event) => handleMove(event.movementX, event.movementY)}
+    ontouchend={() => {
+        buttonState.dragging = false;
+        buttonState.offset = { x: 0, y: 0 };
+    }}
+    onclick={() => {
+        buttonState.dragging = false;
+        buttonState.offset = { x: 0, y: 0 };
+    }}
+    onkeypress={() => "Implement me!"}
 >
     <MenuCursor
         diameter={buttonDiameter}
@@ -182,17 +207,9 @@
     />
 
     {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}
-        {@const centerX = width / 2}
-        {@const centerY = height / 2}
         {@const angleIncrement =
             (2 * Math.PI) / stack.top(stateStack).actions.items.length}
         {@const currentAngle = index * angleIncrement}
-        {@const ratioX = Math.cos(currentAngle)}
-        {@const ratioY = Math.sin(currentAngle)}
-        {@const posX = (1 - ratioX) * centerX}
-        {@const posY = (1 - ratioY) * centerY}
-        {@const _offsetX = width / 2 - posX}
-        {@const _offsetY = -(height / 2 - posY)}
         <OptionZone
             {action}
             {performAction}
@@ -206,8 +223,6 @@
             modalHeight={modalStyle.width}
             deadzoneDiameter={buttonDiameter}
             dragging={buttonState.dragging}
-            {posX}
-            {posY}
         />
     {/each}
 </div>
@@ -223,18 +238,5 @@
         align-items: center;
 
         position: relative;
-
-        > button {
-            border: 1px solid var(--color-accent);
-            position: absolute;
-            width: var(
-                --radial-button-diameter,
-                var(--radial-button-diameter-config, 15%)
-            );
-            height: var(
-                --radial-button-diameter,
-                var(--radial-button-diameter-config, 15%)
-            );
-        }
     }
 </style>

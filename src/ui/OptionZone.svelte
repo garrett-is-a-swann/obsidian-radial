@@ -2,6 +2,9 @@
 import type { Action } from "types/Action";
 import type { ActionGroup } from "types/ActionGroup";
 import type { Position } from "types/Position";
+
+import { getIcon } from "obsidian"
+
 import { isAction } from "utils/type/isAction";
 import { isActionGroup } from "utils/type/isActionGroup";
 
@@ -17,8 +20,6 @@ interface Props {
     offsetAngle: number;
     rotationAngle: number;
     regionAngle: number;
-    posX: number;
-    posY: number;
     deadzoneDiameter: number;
     dragging: boolean
 };
@@ -34,17 +35,15 @@ const {
     offsetAngle,
     rotationAngle,
     regionAngle,
-    posX,
-    posY,
     deadzoneDiameter,
     dragging,
 } = $props();
 
 
-function polar(angle: number, radius: number, offset: number = 0): [number, number] {
+function polar(angle: number, radius: number, {x, y}: Position = center, offset: number = 0): [number, number] {
   return [
-    offset + centerX + radius * Math.cos(angle),
-    centerY + radius * Math.sin(angle),
+    offset + x + radius * Math.cos(angle),
+    y + radius * Math.sin(angle),
   ];
 }
 function lerp(a: number, b: number, t: number) {
@@ -62,28 +61,37 @@ function deg(rad) {
     return Math.floor(rad * 180 / Math.PI);
 }
 
-const centerX = 50;
-const centerY = 50;
+const center: Position  = { x: 50, y: 50 }
 
 const deadzoneRadiusPct = 50 - 30;
+const angle = $derived(rotationAngle - offsetAngle);
+const modalWidthPx = $derived(+modalWidth.slice(0, -2))
+const shiftRadius = $derived((deadzoneRadiusPct/50) * modalWidthPx / 2);
+const nextCenterOffset = $derived({
+    x: Math.cos(angle),
+    y: Math.sin(angle),
+});
+
 const ARC_STEPS = $derived(Math.floor(31 / numSlices) + 1);
-const OUTER_ARC_STEPS = $derived(Math.floor(19 / numSlices) + 1);
+const OUTER_ARC_STEPS = $derived(Math.floor(15 / numSlices) + 1);
 const R = 50; // outer radius
 
-const angle = $derived(rotationAngle - offsetAngle);
-const outerCicle = Array.from({ length: 32 + 1 }, (_, i) => {
-    const t = lerp(-Math.PI * .3, Math.PI * .3, i / 32);
-    return polar(t, R,);
+// TODO(Garrett): Determine maximum _minimum_ -- ie, what's the biggest space an option zone can take up 
+//     when there are only a single or small number of option zones to draw, so that user doesn't accidentally
+//     drag thru multiple options.
+//     This is a good start, but not perfect:
+const outerCicle = Array.from({ length: 16 + 1 }, (_, i) => {
+    const t = lerp(-Math.PI * .3, Math.PI * .3, i / 16);
+    return polar(t, 30, {x: center.x + nextCenterOffset.x, y: center.y + nextCenterOffset.y},);
 });
-const innerCicle = Array.from({ length: 32 + 1 }, (_, i) => {
-    const t = lerp(Math.PI * .4, -Math.PI * .4, i / 32);
-    return polar(t, deadzoneRadiusPct);
+const innerCicle = Array.from({ length: 2 + 1 }, (_, i) => {
+    const t = lerp(Math.PI * .4, -Math.PI * .4, i / 2);
+    return polar(t, deadzoneRadiusPct, );
 });
 
 const polygon = $derived.by(() => {
     const unit = "%";
     if (numSlices === 1) {
-        console.log("only 1");
         const arcPath = [
             ...outerCicle,
             ...innerCicle,
@@ -94,7 +102,7 @@ const polygon = $derived.by(() => {
     const borderWidth = 1 * Math.PI / 180
     const aLo = -regionAngle / 2;
     const aHi = aLo + regionAngle - borderWidth;
-    const steps = isAction(action)? ARC_STEPS: 1
+    const steps = isAction(action) && action.id != "psuedo-element:back" ? ARC_STEPS: 2
     const arcPath: [number, number][] = [
         // Outer
         ...Array.from({ length: OUTER_ARC_STEPS + 1 }, (_, i) => {
@@ -114,13 +122,18 @@ const polygon = $derived.by(() => {
 const tryAction = $derived(() => {
     if (!dragging) 
         return;
-    const shiftRadius = (deadzoneRadiusPct/50) * +modalWidth.slice(0, -2) / 2;
-    const position = {
-        x: Math.cos(angle) * shiftRadius,
-        y: Math.sin(angle) * shiftRadius,
-    };
-    performAction(action, position)
+    performAction(action, {
+        x: nextCenterOffset.x * shiftRadius,
+        y: nextCenterOffset.y * shiftRadius,
+    });
 });
+
+
+const iconName = $derived(
+    action.icon && app.commands.commands[action.icon]?.icon 
+        || app.commands.commands[action.id]?.icon
+);
+const icon = $derived(getIcon(iconName ?? 'aperture'));
 
 </script>
 
@@ -138,12 +151,12 @@ const tryAction = $derived(() => {
     ]}
     role="menuitem"
     tabindex="0"
-    style:--interactive-normal={action.color}
     style:--interactive-hover={action.color? `color-mix(in oklab, ${action.color} 90%, white)`: undefined}
     style:width={modalWidth}
     style:height={modalWidth}
     style:rotate={(angle) * 180 / Math.PI}deg
     style:clip-path={polygon}
+    style:box-shadow="{.75 * modalWidthPx}px 0 {.15 * modalWidthPx}px 0px inset color-mix(in srgb, {action.color ?? "transparent"} 60%, transparent)"
     onmousemove={tryAction}
     onclick={() => performAction(action, { x: offsetX, y: offsetY })}
 >
@@ -152,6 +165,21 @@ const tryAction = $derived(() => {
     </span>
 </button>
 
+<div class='radial-item-detail'>
+    <div class='radial-item-detail-icon'
+        style:left={((deadzoneRadiusPct + 10) * Math.cos(angle)) + 50}%
+        style:top={((deadzoneRadiusPct + 10) * Math.sin(angle)) + 50}%
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon {iconName}">
+            {@html icon.getHTML()}
+        </svg>
+    </div>
+    <span class='radial-item-detail-body'
+        style:left={((deadzoneRadiusPct + 25) * Math.cos(angle)) + 50}%
+        style:top={((deadzoneRadiusPct + 25) * Math.sin(angle)) + 50}%
+    >{action.name}</span>
+</div>
+
 <style>
 .radial-item {
     position: absolute;
@@ -159,7 +187,6 @@ const tryAction = $derived(() => {
     display: flex;
     justify-content: center;
     align-items: center;
-
     border: 1px solid var(--color-accent);
 
     &.radial-items-pop {
@@ -171,6 +198,9 @@ const tryAction = $derived(() => {
     }
 }
 .radial-item-detail {
-    position: relative;
+    > * {
+        position: absolute;
+        transform: translate(-50%, -50%);
+    }
 }
 </style>
