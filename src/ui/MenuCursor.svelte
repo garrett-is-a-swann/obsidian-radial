@@ -5,20 +5,16 @@
         diameter: number;
         modalWidth: number,
         modalHeight: number,
-        dragging: boolean,
         setDrag: (boolean) => void,
         offset: Position,
-        radialWrapper: HTMLElement,
     };
 
     let {
         diameter,
         modalWidth,
         modalHeight,
-        dragging,
         setDrag,
         offset,
-        radialWrapper,
     }: Props = $props();
 
 </script>

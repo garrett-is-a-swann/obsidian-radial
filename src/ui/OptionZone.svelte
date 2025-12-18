@@ -10,34 +10,29 @@ import { isActionGroup } from "utils/type/isActionGroup";
 
 
 interface Props {
-    action: Action;
-    index: number,
+    action: Action | ActionGroup;
     numSlices: number
     performAction: (_action: Action | ActionGroup, pos: Position) => void,
-    commands: { [key: string]: any }; // TODO(Garrett): Use obsidian-typings for type info.
-    modalWidth: number;
-    modalHeight: number;
+    // ts-ignore @typescript-eslint/no-explicit-any
+    commands: { [key: string]: string }; // TODO(Garrett): Use obsidian-typings for type info.
+    modalWidth: string;
     offsetAngle: number;
     rotationAngle: number;
     regionAngle: number;
-    deadzoneDiameter: number;
     dragging: boolean
 };
 
 const {
     action,
-    index,
     numSlices,
     performAction,
     commands,
     modalWidth,
-    modalHeight,
     offsetAngle,
     rotationAngle,
     regionAngle,
-    deadzoneDiameter,
     dragging,
-} = $props();
+}: Props = $props();
 
 
 function polar(angle: number, radius: number, {x, y}: Position = center, offset: number = 0): [number, number] {
@@ -50,19 +45,7 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
-function insetPoint([x, y]: [number, number], t: number): [number, number] {
-  return [
-    lerp(x, 50, t),
-    lerp(y, 50, t),
-  ];
-}
-
-function deg(rad) {
-    return Math.floor(rad * 180 / Math.PI);
-}
-
 const center: Position  = { x: 50, y: 50 }
-
 const deadzoneRadiusPct = 50 - 30;
 const angle = $derived(rotationAngle - offsetAngle);
 const modalWidthPx = $derived(+modalWidth.slice(0, -2))
@@ -119,8 +102,8 @@ const polygon = $derived.by(() => {
     return polygon
 });
 
-const tryAction = $derived(() => {
-    if (!dragging) 
+const tryAction = $derived((clicked: boolean = false) => {
+    if (!dragging && !clicked) 
         return;
     performAction(action, {
         x: nextCenterOffset.x * shiftRadius,
@@ -130,8 +113,8 @@ const tryAction = $derived(() => {
 
 
 const iconName = $derived(
-    action.icon && app.commands.commands[action.icon]?.icon 
-        || app.commands.commands[action.id]?.icon
+    action.icon && commands[action.icon]?.icon 
+        || commands[action.id]?.icon
 );
 const icon = $derived(getIcon(iconName ?? 'aperture'));
 
@@ -157,8 +140,8 @@ const icon = $derived(getIcon(iconName ?? 'aperture'));
     style:rotate={(angle) * 180 / Math.PI}deg
     style:clip-path={polygon}
     style:box-shadow="{.75 * modalWidthPx}px 0 {.15 * modalWidthPx}px 0px inset color-mix(in srgb, {action.color ?? "transparent"} 60%, transparent)"
-    onmousemove={tryAction}
-    onclick={() => performAction(action, { x: offsetX, y: offsetY })}
+    onmousemove={() => tryAction()}
+    onclick={() => tryAction(true)}
 >
     <span class="radial-item-body">
         {action.name?.slice(0, 5) ?? "Unknown"}
@@ -171,6 +154,7 @@ const icon = $derived(getIcon(iconName ?? 'aperture'));
         style:top={((deadzoneRadiusPct + 10) * Math.sin(angle)) + 50}%
     >
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon {iconName}">
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html icon.getHTML()}
         </svg>
     </div>

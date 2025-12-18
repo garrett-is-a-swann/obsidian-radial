@@ -200,10 +200,8 @@
         diameter={buttonDiameter}
         modalWidth={width}
         modalHeight={height}
-        dragging={buttonState.dragging}
         setDrag={(drag: boolean) => (buttonState.dragging = drag)}
         offset={buttonState.offset}
-        {radialWrapper}
     />
 
     {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}
@@ -213,15 +211,12 @@
         <OptionZone
             {action}
             {performAction}
-            {index}
             numSlices={stack.top(stateStack).actions.items.length}
             {commands}
             rotationAngle={currentAngle}
             offsetAngle={stack.top(stateStack).rotationRadians}
             regionAngle={angleIncrement}
             modalWidth={modalStyle.width}
-            modalHeight={modalStyle.width}
-            deadzoneDiameter={buttonDiameter}
             dragging={buttonState.dragging}
         />
     {/each}
