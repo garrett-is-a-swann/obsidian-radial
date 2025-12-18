@@ -185,14 +185,30 @@
     ontouchmove={(event: TouchEvent) => {
         console.log(event);
 
+        const touch = event.changedTouches[0];
+
+        const targetElement = document.elementFromPoint(
+            touch.clientX,
+            touch.clientY,
+        );
+
+        if (targetElement && targetElement.hasAttribute("data-action-index")) {
+            const actionIndex: number =
+                +targetElement.getAttribute("data-action-index")!;
+            performAction(stack.top(stateStack).actions.items[actionIndex], {
+                x: +targetElement.getAttribute("data-next-target-x")!,
+                y: +targetElement.getAttribute("data-next-target-y")!,
+            });
+        }
+
         const rect = radialWrapper.getBoundingClientRect();
 
         // Calculate the center X and Y coordinates (relative to the viewport)
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
         handleMove(
-            event.changedTouches[0].clientX - centerX - buttonState.offset.x,
-            event.changedTouches[0].clientY - centerY - buttonState.offset.y,
+            touch.clientX - centerX - buttonState.offset.x,
+            touch.clientY - centerY - buttonState.offset.y,
         );
     }}
     onmousemove={(event) => handleMove(event.movementX, event.movementY)}
@@ -223,6 +239,7 @@
         {@const currentAngle = index * angleIncrement}
         <OptionZone
             {action}
+            {index}
             {performAction}
             numSlices={stack.top(stateStack).actions.items.length}
             {commands}
@@ -238,8 +255,8 @@
 <style>
     .radial-wrapper {
         /* Width/Height control the "padding" of the radial menu -- top/right computed based on clientWidth */
-        width: 90%;
-        height: 90%;
+        width: 105%;
+        height: 105%;
 
         display: flex;
         justify-content: center;

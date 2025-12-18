@@ -4,14 +4,18 @@
     aspect-ratio: 1/1;
     border: 15px solid #000;
     overflow: hidden;
+    padding: 0;
+    > .modal-header {
+        display: none;
+    }
+    > .modal-close-button.clickable-icon {
+        display: none;
+    }
     > .modal-content {
         display: flex;
         justify-content: center;
         align-items: center;
         overflow: hidden;
-    }
-    > .modal-close-button.clickable-icon {
-        display: none;
     }
 }
 
