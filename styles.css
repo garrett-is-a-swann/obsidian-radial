@@ -1,7 +1,7 @@
 .radial-menu {
     border-radius: 50%;
     width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
-    height: var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
+    aspect-ratio: 1/1;
     border: 15px solid #000;
     overflow: hidden;
     > .modal-content {

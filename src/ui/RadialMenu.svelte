@@ -229,7 +229,7 @@
             rotationAngle={currentAngle}
             offsetAngle={stack.top(stateStack).rotationRadians}
             regionAngle={angleIncrement}
-            modalWidth={modalStyle.width}
+            modalWidth={width}
             dragging={buttonState.dragging}
         />
     {/each}

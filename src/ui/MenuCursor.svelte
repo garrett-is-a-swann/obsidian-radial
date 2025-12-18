@@ -40,9 +40,6 @@ button {
         --radial-button-diameter,
         var(--radial-button-diameter-config, 15%)
     );
-    height: var(
-        --radial-button-diameter,
-        var(--radial-button-diameter-config, 15%)
-    );
+    aspect-ratio: 1/1;
 }
 </style>

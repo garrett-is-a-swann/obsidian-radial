@@ -15,7 +15,7 @@ interface Props {
     performAction: (_action: Action | ActionGroup, pos: Position) => void,
     // ts-ignore @typescript-eslint/no-explicit-any
     commands: { [key: string]: string }; // TODO(Garrett): Use obsidian-typings for type info.
-    modalWidth: string;
+    modalWidth: number;
     offsetAngle: number;
     rotationAngle: number;
     regionAngle: number;
@@ -48,7 +48,7 @@ function lerp(a: number, b: number, t: number) {
 const center: Position  = { x: 50, y: 50 }
 const deadzoneRadiusPct = 50 - 30;
 const angle = $derived(rotationAngle - offsetAngle);
-const modalWidthPx = $derived(+modalWidth.slice(0, -2))
+const modalWidthPx = $derived(modalWidth)
 const shiftRadius = $derived((deadzoneRadiusPct/50) * modalWidthPx / 2);
 const nextCenterOffset = $derived({
     x: Math.cos(angle),
@@ -135,8 +135,8 @@ const icon = $derived(getIcon(iconName ?? 'aperture'));
     role="menuitem"
     tabindex="0"
     style:--interactive-hover={action.color? `color-mix(in oklab, ${action.color} 90%, white)`: undefined}
-    style:width={modalWidth}
-    style:height={modalWidth}
+    style:width={modalWidth}px
+    style:height={modalWidth}px
     style:rotate={(angle) * 180 / Math.PI}deg
     style:clip-path={polygon}
     style:box-shadow="{.75 * modalWidthPx}px 0 {.15 * modalWidthPx}px 0px inset color-mix(in srgb, {action.color ?? "transparent"} 60%, transparent)"
