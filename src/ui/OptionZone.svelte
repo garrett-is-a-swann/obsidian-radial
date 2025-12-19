@@ -91,9 +91,7 @@
         const aLo = -regionAngle / 2;
         const aHi = aLo + regionAngle - borderWidth;
         const steps =
-            isAction(action) && action.id != "psuedo-element:back"
-                ? ARC_STEPS
-                : 2;
+            isAction(action)?.id != "psuedo-element:back" ? ARC_STEPS : 2;
         const arcPath: [number, number][] = [
             // Outer
             ...Array.from({ length: OUTER_ARC_STEPS + 1 }, (_, i) => {
@@ -125,99 +123,108 @@
     const icon = $derived(getIcon(iconName ?? "aperture"));
 </script>
 
-<button
-    class={[
-        "radial-item",
-        {
-            "radial-item-action": isAction(action),
-            "radial-items-group":
-                isActionGroup(action) ||
-                isAction(action)?.id === "psuedo-element:back",
-            "radial-items-pop": isAction(action)?.id === "psuedo-element:back",
-        },
-    ]}
+<div
+    class="radial-item-wrapper"
     data-action-index={index}
     data-next-target-x={nextCenterOffset.x * shiftRadius}
     data-next-target-y={nextCenterOffset.y * shiftRadius}
-    role="menuitem"
-    tabindex="0"
-    style:--interactive-hover={action.color
-        ? `color-mix(in oklab, ${action.color} 90%, white)`
-        : undefined}
-    style:width="{modalWidth}px"
-    style:height="{modalWidth}px"
-    style:rotate="{(angle * 180) / Math.PI}deg"
-    style:clip-path={polygon}
-    style:box-shadow="{0.75 * modalWidthPx}px 0 {0.15 * modalWidthPx}px 0px
-    inset color-mix(in srgb, {action.color ?? 'transparent'} 60%, transparent)"
-    onmousemove={() => tryAction()}
-    ontouchmove={() => tryAction()}
-    onclick={() => tryAction(true)}
 >
-    <span class="radial-item-body">
-        {action.name?.slice(0, 5) ?? "Unknown"}
-    </span>
-</button>
+    <button
+        class={[
+            "radial-item",
+            {
+                "radial-item-action": isAction(action),
+                "radial-items-group":
+                    isActionGroup(action) ||
+                    isAction(action)?.id === "psuedo-element:back",
+                "radial-items-pop":
+                    isAction(action)?.id === "psuedo-element:back",
+            },
+        ]}
+        role="menuitem"
+        tabindex="0"
+        style:--interactive-hover={action.color
+            ? `color-mix(in oklab, ${action.color} 90%, white)`
+            : undefined}
+        style:width="{modalWidth}px"
+        style:height="{modalWidth}px"
+        style:rotate="{(angle * 180) / Math.PI}deg"
+        style:clip-path={polygon}
+        style:box-shadow="{0.75 * modalWidthPx}px 0 {0.15 * modalWidthPx}px 0px
+        inset color-mix(in srgb, {action.color ?? 'transparent'} 60%, transparent)"
+        onmousemove={() => tryAction()}
+        ontouchmove={() => tryAction()}
+        onclick={() => tryAction(true)}
+    >
+        <span class="radial-item-body">
+            {action.name?.slice(0, 5) ?? "Unknown"}
+        </span>
+    </button>
 
-<div class="radial-item-detail">
-    <div
-        class="radial-item-detail-icon"
-        style:left="{(deadzoneRadiusPct + 2.5) * Math.cos(angle) + 50}%"
-        style:top="{(deadzoneRadiusPct + 2.5) * Math.sin(angle) + 50}%"
-    >
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="svg-icon {iconName}"
+    <div class="radial-item-detail">
+        <div
+            class="radial-item-detail-icon"
+            style:left="{(deadzoneRadiusPct + 2.5) * Math.cos(angle) + 50}%"
+            style:top="{(deadzoneRadiusPct + 2.5) * Math.sin(angle) + 50}%"
         >
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html icon.getHTML()}
-        </svg>
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="svg-icon {iconName}"
+            >
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                {@html icon.getHTML()}
+            </svg>
+        </div>
+        <span
+            class="radial-item-detail-body"
+            style:left="{(deadzoneRadiusPct +
+                (center.x - deadzoneRadiusPct) / 2) *
+                Math.cos(angle) +
+                50}%"
+            style:top="{(deadzoneRadiusPct +
+                (center.y - deadzoneRadiusPct) / 2) *
+                Math.sin(angle) +
+                50}%"
+        >
+            {action.name}
+        </span>
     </div>
-    <span
-        class="radial-item-detail-body"
-        style:left="{(deadzoneRadiusPct + (center.x - deadzoneRadiusPct) / 2) *
-            Math.cos(angle) +
-            50}%"
-        style:top="{(deadzoneRadiusPct + (center.y - deadzoneRadiusPct) / 2) *
-            Math.sin(angle) +
-            50}%"
-    >
-        {action.name}
-    </span>
 </div>
 
 <style>
-    .radial-item {
-        position: absolute;
+    .radial-item-wrapper {
+        > .radial-item {
+            position: absolute;
 
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        border: 1px solid var(--color-accent);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid var(--color-accent);
 
-        &.radial-items-pop {
-            rotate: 45deg;
-            background: red;
-            > .radial-item-body {
-                rotate: -45deg;
+            &.radial-items-pop {
+                rotate: 45deg;
+                background: red;
+                > .radial-item-body {
+                    rotate: -45deg;
+                }
             }
         }
-    }
-    .radial-item-detail {
-        > * {
-            position: absolute;
-            transform: translate(-50%, -50%);
+        > .radial-item-detail {
+            > * {
+                position: absolute;
+                transform: translate(-50%, -50%);
+            }
+            > .radial-item-detail-body {
+                text-align: center;
+            }
         }
-    }
-    .radial-item-detail-body {
-        text-align: center;
     }
 </style>

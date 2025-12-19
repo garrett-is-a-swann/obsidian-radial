@@ -136,8 +136,6 @@
     };
 
     function handleMove(x: number, y: number) {
-        console.log(x, y);
-        console.log($state.snapshot(width));
         if (!buttonState.dragging) {
             return;
         }
@@ -183,22 +181,39 @@
         }
     }}
     ontouchmove={(event: TouchEvent) => {
-        console.log(event);
-
         const touch = event.changedTouches[0];
 
-        const targetElement = document.elementFromPoint(
+        let targetElement = document.elementFromPoint(
             touch.clientX,
             touch.clientY,
         );
 
-        if (targetElement && targetElement.hasAttribute("data-action-index")) {
-            const actionIndex: number =
-                +targetElement.getAttribute("data-action-index")!;
-            performAction(stack.top(stateStack).actions.items[actionIndex], {
-                x: +targetElement.getAttribute("data-next-target-x")!,
-                y: +targetElement.getAttribute("data-next-target-y")!,
-            });
+        while (targetElement && targetElement != radialWrapper) {
+            if (
+                targetElement &&
+                targetElement.hasAttribute("data-action-index")
+            ) {
+                const actionIndex: number =
+                    +targetElement.getAttribute("data-action-index")!;
+                performAction(
+                    stack.top(stateStack).actions.items[actionIndex],
+                    {
+                        x: +targetElement.getAttribute("data-next-target-x")!,
+                        y: +targetElement.getAttribute("data-next-target-y")!,
+                    },
+                );
+            }
+
+            targetElement = targetElement.parentElement;
+
+            if (
+                targetElement ==
+                // the fullscreen semi-transparent modal background.
+                radialWrapper.parentElement?.parentElement?.parentElement
+            ) {
+                closeMenu();
+                return;
+            }
         }
 
         const rect = radialWrapper.getBoundingClientRect();
@@ -227,7 +242,6 @@
         modalWidth={width}
         modalHeight={height}
         setDrag={(drag: boolean) => {
-            console.log("drag");
             buttonState.dragging = drag;
         }}
         offset={buttonState.offset}
@@ -254,13 +268,8 @@
 
 <style>
     .radial-wrapper {
-        /* Width/Height control the "padding" of the radial menu -- top/right computed based on clientWidth */
-        width: 105%;
-        height: 105%;
-
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        width: 100%;
+        height: 100%;
 
         position: relative;
     }
