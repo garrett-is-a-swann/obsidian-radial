@@ -63,20 +63,18 @@
     const ARC_STEPS = $derived(Math.floor(31 / numSlices) + 1);
     const OUTER_ARC_STEPS = $derived(Math.floor(31 / numSlices) + 1);
     const R = 50; // outer radius
+    const iconPositionPct = 4;
 
     // TODO(Garrett): Determine maximum _minimum_ -- ie, what's the biggest space an option zone can take up
     //     when there are only a single or small number of option zones to draw, so that user doesn't accidentally
     //     drag thru multiple options.
     //     This is a good start, but not perfect:
-    const outerCicle = Array.from({ length: 16 + 1 }, (_, i) => {
-        const t = lerp(-Math.PI * 0.3, Math.PI * 0.3, i / 16);
-        return polar(t, 30, {
-            x: center.x + nextCenterOffset.x,
-            y: center.y + nextCenterOffset.y,
-        });
+    const outerCicle = Array.from({ length: 64 + 1 }, (_, i) => {
+        const t = lerp(2 * Math.PI, 0, i / 64);
+        return polar(t, R);
     });
-    const innerCicle = Array.from({ length: 2 + 1 }, (_, i) => {
-        const t = lerp(Math.PI * 0.4, -Math.PI * 0.4, i / 2);
+    const innerCicle = Array.from({ length: 64 + 1 }, (_, i) => {
+        const t = lerp(0, 2 * Math.PI, i / 64);
         return polar(t, deadzoneRadiusPct);
     });
 
@@ -164,8 +162,12 @@
     <div class="radial-item-detail">
         <div
             class="radial-item-detail-icon"
-            style:left="{(deadzoneRadiusPct + 2.5) * Math.cos(angle) + 50}%"
-            style:top="{(deadzoneRadiusPct + 2.5) * Math.sin(angle) + 50}%"
+            style:left="{(deadzoneRadiusPct + iconPositionPct) *
+                Math.cos(angle) +
+                50}%"
+            style:top="{(deadzoneRadiusPct + iconPositionPct) *
+                Math.sin(angle) +
+                50}%"
         >
             <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -186,11 +188,11 @@
         <span
             class="radial-item-detail-body"
             style:left="{(deadzoneRadiusPct +
-                (center.x - deadzoneRadiusPct) / 2) *
+                (center.x + iconPositionPct - deadzoneRadiusPct) / 2) *
                 Math.cos(angle) +
                 50}%"
             style:top="{(deadzoneRadiusPct +
-                (center.y - deadzoneRadiusPct) / 2) *
+                (center.y + iconPositionPct - deadzoneRadiusPct) / 2) *
                 Math.sin(angle) +
                 50}%"
         >
