@@ -10,7 +10,7 @@
 
     interface Props {
         actions: ActionGroup;
-        parent: HTMLElement;
+        modalContainer: HTMLElement;
         app: App;
         // eslint-disable-next-line
         commands: { [key: string]: any }; // TODO(Garrett): Use obsidian-typings for type info.
@@ -25,8 +25,14 @@
         menuOffset: Position;
     }
 
-    const { actions, parent, app, commands, closeMenu, setTarget }: Props =
-        $props();
+    const {
+        actions,
+        modalContainer,
+        app,
+        commands,
+        closeMenu,
+        setTarget,
+    }: Props = $props();
 
     let width: number = $state(0);
     let height: number = $state(0);
@@ -42,7 +48,6 @@
             menuOffset: { x: 0, y: 0 },
         },
     ]);
-    const modalStyle = $derived(getComputedStyle(parent));
     const stack = {
         top<T>(stack: T[]): T {
             return stack[stack.length - 1];
@@ -156,9 +161,8 @@
     bind:clientHeight={height}
     onmouseenter={(event) => {
         if (buttonState.dragging) {
-            const modal = radialWrapper.parentElement!.parentElement!;
-            const modalStyle = getComputedStyle(modal);
-            const radialBox = modal.getBoundingClientRect();
+            const modalStyle = getComputedStyle(modalContainer);
+            const radialBox = modalContainer.getBoundingClientRect();
             buttonState.offset = {
                 x:
                     event.clientX -
@@ -209,7 +213,7 @@
             if (
                 targetElement ==
                 // the fullscreen semi-transparent modal background.
-                radialWrapper.parentElement?.parentElement?.parentElement
+                modalContainer.parentElement
             ) {
                 closeMenu();
                 return;

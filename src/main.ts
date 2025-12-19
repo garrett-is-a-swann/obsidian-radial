@@ -229,7 +229,7 @@ class RadialModal extends Modal {
             target: contentEl,
             props: {
                 actions: configuration!.actions,
-                parent: parent,
+                modalContainer: parent,
                 app: this.app,
                 // eslint-disable-next-line
                 commands: (this.app as any)?.commands?.commands, //  Internal API - TODO(Garrett): Add obsidian-typings
