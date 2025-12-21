@@ -128,6 +128,7 @@
     data-next-target-y={nextCenterOffset.y * shiftRadius}
 >
     <button
+        aria-label="radial-item-detail"
         class={[
             "radial-item",
             {
@@ -154,12 +155,9 @@
         ontouchmove={() => tryAction()}
         onclick={() => tryAction(true)}
     >
-        <span class="radial-item-body">
-            {action.name?.slice(0, 5) ?? "Unknown"}
-        </span>
     </button>
 
-    <div class="radial-item-detail">
+    <div id="radial-item-detail" class="radial-item-detail">
         <div
             class="radial-item-detail-icon"
             style:left="{(deadzoneRadiusPct + iconPositionPct) *
@@ -214,9 +212,6 @@
             &.radial-items-pop {
                 rotate: 45deg;
                 background: red;
-                > .radial-item-body {
-                    rotate: -45deg;
-                }
             }
         }
         > .radial-item-detail {

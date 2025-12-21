@@ -137,6 +137,7 @@
         }
         if (!setTarget) {
             buttonState.dragging = false;
+            buttonState.offset = { x: 0, y: 0 };
         }
     };
 
@@ -144,7 +145,6 @@
         if (!buttonState.dragging) {
             return;
         }
-
         // TODO(Garrett): Solve race condition with handleMove overriding
         //     button offset-fixing in performAction causing jumping cursor visual bug.
         buttonState.offset.x += x;
@@ -185,6 +185,9 @@
         }
     }}
     ontouchmove={(event: TouchEvent) => {
+        if (!buttonState.dragging) {
+            return;
+        }
         const touch = event.changedTouches[0];
 
         let targetElement = document.elementFromPoint(

@@ -1,4 +1,4 @@
-.radial-menu {
+.is-mobile .radial-menu, .radial-menu {
     border-radius: 50%;
     width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
     aspect-ratio: 1/1;
