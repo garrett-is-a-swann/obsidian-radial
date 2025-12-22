@@ -3,12 +3,14 @@
     import type { Action } from "types/Action";
     import type { ActionGroup } from "types/ActionGroup";
     import { isAction } from "utils/type/isAction";
-    import { isActionGroup } from "utils/type/isActionGroup";
     import type { Position } from "types/Position";
+
+    import MenuCursor from "ui/MenuCursor.svelte";
+    import OptionZone from "ui/OptionZone.svelte";
 
     interface Props {
         actions: ActionGroup;
-        parent: HTMLElement;
+        modalContainer: HTMLElement;
         app: App;
         // eslint-disable-next-line
         commands: { [key: string]: any }; // TODO(Garrett): Use obsidian-typings for type info.
@@ -25,7 +27,7 @@
 
     const {
         actions,
-        parent: _parent,
+        modalContainer,
         app,
         commands,
         closeMenu,
@@ -46,7 +48,6 @@
             menuOffset: { x: 0, y: 0 },
         },
     ]);
-
     const stack = {
         top<T>(stack: T[]): T {
             return stack[stack.length - 1];
@@ -55,7 +56,7 @@
 
     const buttonState = $state({
         dragging: false,
-        offset: stack.top(stateStack).menuOffset,
+        offset: { ...stack.top(stateStack).menuOffset },
     });
 
     const performAction = (
@@ -127,14 +128,77 @@
                 };
 
                 setTarget(nextState.menuOffset);
+                buttonState.offset = {
+                    x: buttonState.offset.x - position.x,
+                    y: buttonState.offset.y - position.y,
+                };
             }
             stateStack.push(nextState);
         }
         if (!setTarget) {
             buttonState.dragging = false;
+            buttonState.offset = { x: 0, y: 0 };
         }
-        buttonState.offset = { x: 0, y: 0 };
     };
+
+    function handleMove(x: number, y: number) {
+        if (!buttonState.dragging) {
+            return;
+        }
+        buttonState.offset.x += x;
+        buttonState.offset.y += y;
+    }
+
+    function handleCursorPosition({
+        clientX,
+        clientY,
+    }: {
+        clientX: number;
+        clientY: number;
+    }) {
+        if (!buttonState.dragging) {
+            return;
+        }
+        let targetElement = document.elementFromPoint(clientX, clientY);
+
+        while (targetElement && targetElement != radialWrapper) {
+            if (
+                targetElement &&
+                targetElement.hasAttribute("data-action-index")
+            ) {
+                const actionIndex: number =
+                    +targetElement.getAttribute("data-action-index")!;
+                performAction(
+                    stack.top(stateStack).actions.items[actionIndex],
+                    {
+                        x: +targetElement.getAttribute("data-next-target-x")!,
+                        y: +targetElement.getAttribute("data-next-target-y")!,
+                    },
+                );
+            }
+
+            targetElement = targetElement.parentElement;
+
+            if (
+                targetElement ==
+                // the fullscreen semi-transparent modal background.
+                modalContainer.parentElement
+            ) {
+                closeMenu();
+                return;
+            }
+        }
+
+        const rect = radialWrapper.getBoundingClientRect();
+
+        // Calculate the center X and Y coordinates (relative to the viewport)
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        handleMove(
+            clientX - centerX - buttonState.offset.x,
+            clientY - centerY - buttonState.offset.y,
+        );
+    }
 </script>
 
 <div
@@ -146,9 +210,8 @@
     bind:clientHeight={height}
     onmouseenter={(event) => {
         if (buttonState.dragging) {
-            const modal = radialWrapper.parentElement!.parentElement!;
-            const modalStyle = getComputedStyle(modal);
-            const radialBox = modal.getBoundingClientRect();
+            const modalStyle = getComputedStyle(modalContainer);
+            const radialBox = modalContainer.getBoundingClientRect();
             buttonState.offset = {
                 x:
                     event.clientX -
@@ -170,151 +233,54 @@
             buttonState.dragging = false;
         }
     }}
+    ontouchmove={(event: TouchEvent) => {
+        handleCursorPosition(event.changedTouches[0]);
+    }}
+    onmousemove={(event) => handleCursorPosition(event)}
+    ontouchend={() => {
+        buttonState.dragging = false;
+        buttonState.offset = { x: 0, y: 0 };
+    }}
+    onclick={() => {
+        buttonState.dragging = false;
+        buttonState.offset = { x: 0, y: 0 };
+    }}
+    onkeypress={() => "Implement me!"}
 >
-    <button
-        aria-label="radial-draggable-button"
-        data-tooltip-classes="go-away"
-        role="menuitem"
-        bind:clientWidth={buttonDiameter}
-        style:border-radius="{buttonDiameter / 2}px"
-        style:left="{width / 2 - buttonDiameter / 2 + buttonState.offset.x}px"
-        style:top="{height / 2 - buttonDiameter / 2 + buttonState.offset.y}px"
-        onmousedown={() => (buttonState.dragging = true)}
-        onmousemove={(event) => {
-            if (buttonState.dragging) {
-                let next = {
-                    x:
-                        buttonState.offset.x +
-                        event.offsetX -
-                        buttonDiameter / 2,
-                    y:
-                        buttonState.offset.y +
-                        event.offsetY -
-                        buttonDiameter / 2,
-                };
+    <MenuCursor
+        diameter={buttonDiameter}
+        modalWidth={width}
+        modalHeight={height}
+        setDrag={(drag: boolean) => {
+            buttonState.dragging = drag;
+        }}
+        offset={buttonState.offset}
+    />
 
-                const modal = radialWrapper.parentElement!.parentElement!;
-                // boundary detection
-                const modalRadius =
-                    parseFloat(getComputedStyle(modal).width) / 2;
-                const distance = Math.sqrt(next.x * next.x + next.y * next.y);
-                if (distance + buttonDiameter / 2 > modalRadius) {
-                    const shift = distance - modalRadius + buttonDiameter / 2;
-                    const angle = Math.atan2(next.y, next.x);
-                    const shiftX =
-                        Math.cos(angle) * shift * (next.x > 0 ? -1 : 1);
-                    const shiftY =
-                        Math.sin(angle) * shift * (next.x > 0 ? -1 : 1);
-                    next.x += shiftX;
-                    next.y += shiftY;
-                }
-                buttonState.offset = next;
-            }
-        }}
-        onclick={() => {
-            buttonState.dragging = false;
-            // if Click is more-or-less in the center...
-            if (
-                Math.abs(buttonState.offset.x) <= buttonDiameter / 2 &&
-                Math.abs(buttonState.offset.y) <= buttonDiameter / 2
-            ) {
-                if (stateStack.length === 1) {
-                    closeMenu();
-                    return;
-                }
-                stateStack.pop();
-            }
-            buttonState.offset = { x: 0, y: 0 };
-        }}
-    >
-    </button>
     {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}
-        {@const centerX = width / 2}
-        {@const centerY = height / 2}
         {@const angleIncrement =
-            -(2 * Math.PI) / stack.top(stateStack).actions.items.length}
-        {@const currentAngle =
-            index * angleIncrement + stack.top(stateStack).rotationRadians}
-        {@const ratioX = Math.cos(currentAngle)}
-        {@const ratioY = Math.sin(currentAngle)}
-        {@const posX = (1 - ratioX) * centerX}
-        {@const posY = (1 - ratioY) * centerY}
-        {@const offsetX = width / 2 - posX}
-        {@const offsetY = -(height / 2 - posY)}
-        <button
-            class={[
-                "radial-item",
-                {
-                    "radial-item-action": isAction(action),
-                    "radial-items-group":
-                        isActionGroup(action) ||
-                        isAction(action)?.id === "psuedo-element:back",
-                    "radial-items-pop":
-                        isAction(action)?.id === "psuedo-element:back",
-                },
-            ]}
-            role="menuitem"
-            tabindex="0"
-            style:border-radius={isAction(action)?.id &&
-            isAction(action)?.id !== "psuedo-element:back"
-                ? `${buttonDiameter / 2}px`
-                : undefined}
-            style:width="{buttonDiameter}px"
-            style:height="{buttonDiameter}px"
-            style:top="{posY - buttonDiameter / 2}px"
-            style:right="{posX - buttonDiameter / 2}px"
-            onmousemove={() =>
-                buttonState.dragging &&
-                performAction(action, { x: offsetX, y: offsetY })}
-            onclick={() => performAction(action, { x: offsetX, y: offsetY })}
-        >
-            <span class="radial-item-body">
-                {action.name?.slice(0, 5) ?? "Unknown"}
-            </span>
-        </button>
+            (2 * Math.PI) / stack.top(stateStack).actions.items.length}
+        {@const currentAngle = index * angleIncrement}
+        <OptionZone
+            {action}
+            {index}
+            {performAction}
+            numSlices={stack.top(stateStack).actions.items.length}
+            {commands}
+            rotationAngle={currentAngle}
+            offsetAngle={stack.top(stateStack).rotationRadians}
+            regionAngle={angleIncrement}
+            modalWidth={width}
+            dragging={buttonState.dragging}
+        />
     {/each}
 </div>
 
 <style>
     .radial-wrapper {
-        /* Width/Height control the "padding" of the radial menu -- top/right computed based on clientWidth */
-        width: 90%;
-        height: 90%;
-
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        width: 100%;
+        height: 100%;
 
         position: relative;
-        > .radial-item {
-            position: absolute;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-
-            border: 1px solid var(--color-accent);
-
-            &.radial-items-pop {
-                rotate: 45deg;
-                background: red;
-                > .radial-item-body {
-                    rotate: -45deg;
-                }
-            }
-        }
-
-        > button {
-            border: 1px solid var(--color-accent);
-            position: absolute;
-            width: var(
-                --radial-button-diameter,
-                var(--radial-button-diameter-config, 15%)
-            );
-            height: var(
-                --radial-button-diameter,
-                var(--radial-button-diameter-config, 15%)
-            );
-        }
     }
 </style>

@@ -1,16 +1,24 @@
-.radial-menu {
-	border-radius: 50%;
-	width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
-	height: var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
-	border: 15px solid #000;
-	overflow: hidden;
-	> .modal-content {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-	}
+.is-mobile .radial-menu, .radial-menu {
+    border-radius: 50%;
+    width:  var(--radial-menu-diameter-config, var(--radial-menu-diameter, var(--dialog-width)));
+    aspect-ratio: 1/1;
+    border: 15px solid #000;
+    overflow: hidden;
+    padding: 0;
+    > .modal-header {
+        display: none;
+    }
+    > .modal-close-button.clickable-icon {
+        display: none;
+    }
+    > .modal-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
 }
 
 .tooltip.go-away {
-	display: none;
+    display: none;
 }
