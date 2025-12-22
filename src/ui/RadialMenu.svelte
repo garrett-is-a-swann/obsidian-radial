@@ -145,10 +145,59 @@
         if (!buttonState.dragging) {
             return;
         }
-        // TODO(Garrett): Solve race condition with handleMove overriding
-        //     button offset-fixing in performAction causing jumping cursor visual bug.
         buttonState.offset.x += x;
         buttonState.offset.y += y;
+    }
+
+    function handleCursorPosition({
+        clientX,
+        clientY,
+    }: {
+        clientX: number;
+        clientY: number;
+    }) {
+        if (!buttonState.dragging) {
+            return;
+        }
+        let targetElement = document.elementFromPoint(clientX, clientY);
+
+        while (targetElement && targetElement != radialWrapper) {
+            if (
+                targetElement &&
+                targetElement.hasAttribute("data-action-index")
+            ) {
+                const actionIndex: number =
+                    +targetElement.getAttribute("data-action-index")!;
+                performAction(
+                    stack.top(stateStack).actions.items[actionIndex],
+                    {
+                        x: +targetElement.getAttribute("data-next-target-x")!,
+                        y: +targetElement.getAttribute("data-next-target-y")!,
+                    },
+                );
+            }
+
+            targetElement = targetElement.parentElement;
+
+            if (
+                targetElement ==
+                // the fullscreen semi-transparent modal background.
+                modalContainer.parentElement
+            ) {
+                closeMenu();
+                return;
+            }
+        }
+
+        const rect = radialWrapper.getBoundingClientRect();
+
+        // Calculate the center X and Y coordinates (relative to the viewport)
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        handleMove(
+            clientX - centerX - buttonState.offset.x,
+            clientY - centerY - buttonState.offset.y,
+        );
     }
 </script>
 
@@ -185,55 +234,9 @@
         }
     }}
     ontouchmove={(event: TouchEvent) => {
-        if (!buttonState.dragging) {
-            return;
-        }
-        const touch = event.changedTouches[0];
-
-        let targetElement = document.elementFromPoint(
-            touch.clientX,
-            touch.clientY,
-        );
-
-        while (targetElement && targetElement != radialWrapper) {
-            if (
-                targetElement &&
-                targetElement.hasAttribute("data-action-index")
-            ) {
-                const actionIndex: number =
-                    +targetElement.getAttribute("data-action-index")!;
-                performAction(
-                    stack.top(stateStack).actions.items[actionIndex],
-                    {
-                        x: +targetElement.getAttribute("data-next-target-x")!,
-                        y: +targetElement.getAttribute("data-next-target-y")!,
-                    },
-                );
-            }
-
-            targetElement = targetElement.parentElement;
-
-            if (
-                targetElement ==
-                // the fullscreen semi-transparent modal background.
-                modalContainer.parentElement
-            ) {
-                closeMenu();
-                return;
-            }
-        }
-
-        const rect = radialWrapper.getBoundingClientRect();
-
-        // Calculate the center X and Y coordinates (relative to the viewport)
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        handleMove(
-            touch.clientX - centerX - buttonState.offset.x,
-            touch.clientY - centerY - buttonState.offset.y,
-        );
+        handleCursorPosition(event.changedTouches[0]);
     }}
-    onmousemove={(event) => handleMove(event.movementX, event.movementY)}
+    onmousemove={(event) => handleCursorPosition(event)}
     ontouchend={() => {
         buttonState.dragging = false;
         buttonState.offset = { x: 0, y: 0 };
