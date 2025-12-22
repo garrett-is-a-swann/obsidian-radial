@@ -28,6 +28,7 @@ enum FormFieldType {
     String,
     Button,
     Toggle,
+    Slider,
     LAST
 };
 
@@ -68,6 +69,12 @@ interface SettingFormToggleField extends FormField<FormFieldType.Toggle, boolean
     //is_disabled?: Boolean | ((plugin: Plugin) => Boolean);
 }
 
+interface SettingFormSliderField extends FormField<FormFieldType.Slider, number>, MandatoryDetails {
+    limits?: { max?: number; min?: number; step?: number; };
+}
+
+type SettingFormFields = SettingFormTextField | SettingFormButtonField | SettingFormToggleField | SettingFormSliderField;
+
 interface RadialFormSettings {
     configuration_path: SettingFormTextField;
     radial_menu: {
@@ -75,6 +82,11 @@ interface RadialFormSettings {
         diameter: SettingFormTextField;
         button_size: SettingFormTextField;
         radial_retargeting: SettingFormToggleField;
+        position_adjustment: {
+            type: SettingGroup;
+            horizontal: SettingFormSliderField,
+            vertical: SettingFormSliderField,
+        };
     };
 };
 
@@ -116,6 +128,23 @@ const DEFAULT_SETTINGS: RadialFormSettings = {
             description: "Makes it so you can draw a continuous motion.",
             type: FormFieldType.Toggle,
             value: true,
+        },
+        position_adjustment: {
+            type: SettingGroup.SemanticGroup,
+            horizontal: {
+                name: "Left/Right Hand adjustment",
+                description: "(Mobile) Adjust the radial menu position based on hand preference.",
+                type: FormFieldType.Slider,
+                value: 0,
+                limits: { min: -50, max: 50, step: 1, },
+            },
+            vertical: {
+                name: "Up/Down Hand adjustment",
+                description: "(Mobile) Adjust the radial menu position height.",
+                type: FormFieldType.Slider,
+                value: 0,
+                limits: { min: -50, max: 50, step: 1, },
+            }
         }
     }
 }
@@ -225,6 +254,10 @@ class RadialModal extends Modal {
 
 
         const parent = contentEl.parentElement!;
+        if ((this.app as unknown as { isMobile: boolean }).isMobile) {
+            parent.style.left = `${radial_menu.position_adjustment.horizontal?.value ?? 0}%`;
+            parent.style.top = `${radial_menu.position_adjustment.vertical?.value ?? 0}%`;
+        }
         this.ref = mount(RadialMenu, {
             target: contentEl,
             props: {
@@ -237,8 +270,17 @@ class RadialModal extends Modal {
                     this.close();
                 },
                 setTarget: radial_menu.radial_retargeting.value ? ((offset: Position) => {
-                    parent.style.left = `${offset.x}px`;
-                    parent.style.top = `${offset.y}px`;
+                    function pxToPct(px: number) {
+                        return (px / window.innerWidth) * 100;
+                    }
+                    if ((this.app as unknown as { isMobile: boolean }).isMobile) {
+                        parent.style.left = `${pxToPct(offset.x) + (radial_menu.position_adjustment.horizontal?.value ?? 0)}%`;
+                        parent.style.top = `${pxToPct(offset.y) + (radial_menu.position_adjustment.vertical?.value ?? 0)}%`;
+                    }
+                    else {
+                        parent.style.left = `${offset.x}px`;
+                        parent.style.top = `${offset.y}px`;
+                    }
                 }) : undefined,
             }
         });
@@ -279,7 +321,7 @@ class SettingsRoot extends PluginSettingTab {
         this.plugin = plugin;
     }
 
-    private coalesceFormFields<T>(settings: T, form_fields: (SettingFormTextField | SettingFormButtonField | SettingFormToggleField)[] | undefined = undefined) {
+    private coalesceFormFields<T>(settings: T, form_fields: SettingFormFields[] | undefined = undefined) {
         if (!form_fields) {
             form_fields = [];
         }
@@ -296,7 +338,7 @@ class SettingsRoot extends PluginSettingTab {
                 this.coalesceFormFields(setting, form_fields);
             }
             else if (setting_type !== undefined) {
-                form_fields.push(setting as (SettingFormTextField | SettingFormButtonField | SettingFormToggleField));
+                form_fields.push(setting as (SettingFormFields));
             }
         }
         return form_fields;
@@ -308,60 +350,88 @@ class SettingsRoot extends PluginSettingTab {
         containerEl.empty();
 
         for (const element of this.coalesceFormFields(this.plugin.settings)) {
-            if (element.type === FormFieldType.String) {
-                const { name, description, placeholder, callback } = element;
-                new Setting(containerEl)
-                    .setName(name)
-                    .setDesc(description)
-                    .addText(text => {
-                        text
-                            .setValue(element.value ?? "")
-                            .onChange(async (next_value: string) => {
-                                element.value = callback
-                                    ? await callback(this.plugin, element.value, next_value)
-                                    : next_value || undefined;
-                                await this.plugin.saveSettings();
-                            });
-                        if (placeholder) {
-                            text.setPlaceholder(placeholder);
-                        }
-                    });
-            }
-            if (element.type === FormFieldType.Button) {
-                const { name, description, text, callback, is_warning } = element;
-                const setting = new Setting(containerEl)
-                    .addButton((button) => {
-                        button
-                            .setButtonText(text)
-                            .onClick(callback(this.plugin));
-                        if (is_warning && is_warning(this.plugin)) {
-                            button.setWarning();
-                        }
-                    });
-                if (name) {
-                    setting.setName(name);
+            switch (element.type) {
+                case FormFieldType.String: {
+                    const { name, description, placeholder, callback } = element;
+                    new Setting(containerEl)
+                        .setName(name)
+                        .setDesc(description)
+                        .addText(text => {
+                            text
+                                .setValue(element.value ?? "")
+                                .onChange(async (next_value: string) => {
+                                    element.value = callback
+                                        ? await callback(this.plugin, element.value, next_value)
+                                        : next_value || undefined;
+                                    await this.plugin.saveSettings();
+                                });
+                            if (placeholder) {
+                                text.setPlaceholder(placeholder);
+                            }
+                        });
+                    break;
                 }
-                if (description) {
-                    setting.setDesc(description);
+
+                case FormFieldType.Button: {
+                    const { name, description, text, callback, is_warning } = element;
+                    const setting = new Setting(containerEl)
+                        .addButton((button) => {
+                            button
+                                .setButtonText(text)
+                                .onClick(callback(this.plugin));
+                            if (is_warning && is_warning(this.plugin)) {
+                                button.setWarning();
+                            }
+                        });
+                    if (name) {
+                        setting.setName(name);
+                    }
+                    if (description) {
+                        setting.setDesc(description);
+                    }
+                    break;
                 }
-            }
-            if (element.type === FormFieldType.Toggle) {
-                const { name, description, tooltip, /*is_disabled,*/ } = element;
-                new Setting(containerEl)
-                    .setName(name)
-                    .setDesc(description)
-                    .addToggle(toggle => {
-                        toggle
-                            .setValue(element.value ?? false)
-                            .onChange(async (next_value: boolean) => {
+
+                case FormFieldType.Toggle: {
+                    const { name, description, tooltip, /*is_disabled,*/ } = element;
+                    new Setting(containerEl)
+                        .setName(name)
+                        .setDesc(description)
+                        .addToggle(toggle => {
+                            toggle
+                                .setValue(element.value ?? false)
+                                .onChange(async (next_value: boolean) => {
+                                    element.value = next_value;
+                                    await this.plugin.saveSettings();
+                                });
+                            if (tooltip) {
+                                toggle.setTooltip(tooltip?.text, tooltip?.options);
+                            }
+                        })
+                    break;
+                }
+
+                case FormFieldType.Slider: {
+                    const { name, value, description, limits } = element;
+                    new Setting(containerEl)
+                        .setName(name)
+                        .setDesc(description)
+                        .addSlider(slider => {
+                            if (value) {
+                                slider.setValue(value);
+                            }
+                            slider.onChange(async (next_value: number) => {
                                 element.value = next_value;
                                 await this.plugin.saveSettings();
                             });
-                        if (tooltip) {
-                            toggle.setTooltip(tooltip?.text, tooltip?.options);
-                        }
-                    })
-                    ;
+                            if (limits) {
+                                const { min = null, max = null, step = 1 } = limits;
+                                slider.setLimits(min, max, step);
+                            }
+                        });
+                    break;
+                }
+
             }
         }
     }
