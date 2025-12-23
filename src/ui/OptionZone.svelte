@@ -9,6 +9,7 @@
     import { isActionGroup } from "utils/type/isActionGroup";
 
     interface Props {
+        prevAction: Action | ActionGroup;
         action: Action | ActionGroup;
         index: number;
         numSlices: number;
@@ -23,6 +24,7 @@
     }
 
     const {
+        prevAction,
         action,
         index,
         numSlices,
@@ -51,7 +53,8 @@
     }
 
     const center: Position = { x: 50, y: 50 };
-    const deadzoneRadiusPct = 50 - 30;
+    const deadzoneRadiusPct = 20;
+    const actionZoneRadiusPct = 50 - deadzoneRadiusPct;
     const angle = $derived(rotationAngle - offsetAngle);
     const modalWidthPx = $derived(modalWidth);
     const shiftRadius = $derived(((deadzoneRadiusPct / 50) * modalWidthPx) / 2);
@@ -126,6 +129,8 @@
     data-action-index={index}
     data-next-target-x={nextCenterOffset.x * shiftRadius}
     data-next-target-y={nextCenterOffset.y * shiftRadius}
+    style:--radial-deadzone-radius="{deadzoneRadiusPct}%"
+    style:--radial-action-radius="{actionZoneRadiusPct}%"
 >
     <button
         aria-label="radial-item-detail"
@@ -154,6 +159,32 @@
         onclick={() => tryAction(true)}
     >
     </button>
+
+    {#if numSlices > 1}
+        <div class="radial-item-border-wrapper">
+            <div
+                class="radial-item-border-leading"
+                style:rotate="{((angle - regionAngle / 2) * 180) / Math.PI}deg"
+            >
+                <div
+                    class="radial-item-border"
+                    style:box-shadow="0 5px 10px 0 {action.color ??
+                        '#000000DD'}, 0 -5px 10px 0 {prevAction.color ??
+                        '#000000DD'}"
+                ></div>
+            </div>
+            <div
+                class="radial-item-border-trailing"
+                style:rotate="{((angle + regionAngle / 2) * 180) / Math.PI}deg"
+            >
+                <div
+                    class="radial-item-border"
+                    style:box-shadow="0 -5px 10px 0 {action.color ??
+                        '#000000DD'}"
+                ></div>
+            </div>
+        </div>
+    {/if}
 
     <div id="radial-item-detail" class="radial-item-detail">
         <div
@@ -202,14 +233,28 @@
         > .radial-item {
             position: absolute;
 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 1px solid var(--color-accent);
-
             &.radial-items-pop {
                 rotate: 45deg;
                 background: red;
+            }
+        }
+        > .radial-item-border-wrapper {
+            pointer-events: none;
+            > .radial-item-border-leading,
+            .radial-item-border-trailing {
+                position: absolute;
+                width: 100%;
+                aspect-ratio: 1/1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                > .radial-item-border {
+                    right: 0;
+                    position: absolute;
+                    background: var(--radial-action-border-color, gray);
+                    height: 2px;
+                    width: var(--radial-action-radius);
+                }
             }
         }
         > .radial-item-detail {

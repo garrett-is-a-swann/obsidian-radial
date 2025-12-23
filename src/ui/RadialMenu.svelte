@@ -258,14 +258,17 @@
     />
 
     {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}
-        {@const angleIncrement =
-            (2 * Math.PI) / stack.top(stateStack).actions.items.length}
+        {@const numSlices = stack.top(stateStack).actions.items.length}
+        {@const angleIncrement = (2 * Math.PI) / numSlices}
         {@const currentAngle = index * angleIncrement}
         <OptionZone
+            prevAction={stack.top(stateStack).actions.items[
+                (index - 1 + numSlices) % numSlices
+            ]}
             {action}
             {index}
             {performAction}
-            numSlices={stack.top(stateStack).actions.items.length}
+            {numSlices}
             {commands}
             rotationAngle={currentAngle}
             offsetAngle={stack.top(stateStack).rotationRadians}
