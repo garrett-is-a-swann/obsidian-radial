@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -x
+./scripts/update-versions.sh
 header="$(jq -r .name package.json):"
 version=$(jq -r .version package.json)
 if [ -z "$tag" ]; then
@@ -17,13 +18,13 @@ notes="# $header v$semver"
 flags=""
 
 if [[ "$prever" == *a ]]; then
-    notes="$notes - alpha:$prever"
+    notes="$notes - alpha:${prever//[a-z]/}"
     flags="$flags --prerelease"
 fi
 if [[ "$prever" == *b ]]; then
-    notes="$notes - beta:$(echo $prever | sed -n 's/\([0-9]\+\).*/\1/p')"
+    notes="$notes - beta:${prever//[a-z]/}"
     flags="$flags --prerelease"
 fi
 
 gh release create "$tag" --title="$title" --notes="$notes" $flags \
-    main.js manifest.json styles.css
+    main.js manifest.json styles.css versions.json
