@@ -100,7 +100,7 @@ function handleObject(item: Record<string, unknown>): Action | ActionGroup {
             return validateItem({
                 ...value,
                 id: key,
-                name: isAction(value)?.name,
+                name: (value as { name?: string })?.name,
             });
         }
         if (!isAction(value)) {
@@ -150,6 +150,7 @@ function handleArray(group: unknown[], { name, keycode }: Pick<ActionGroup, "nam
 function handleItems(group: ActionGroup, { name, keycode }: Pick<ActionGroup, "name" | "keycode"> = {}): ActionGroup {
     updateNames(group);
     return validateGroup({
+        ...group,
         name: name ?? group.name,
         keycode: keycode,
         items: Object.entries(group.items)

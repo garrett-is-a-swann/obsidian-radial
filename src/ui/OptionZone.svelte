@@ -15,7 +15,7 @@
         numSlices: number;
         performAction: (_action: Action | ActionGroup, pos: Position) => void;
         // ts-ignore @typescript-eslint/no-explicit-any
-        commands: { [key: string]: string }; // TODO(Garrett): Use obsidian-typings for type info.
+        commands: { [key: string]: { id: string; name: string; icon: string } }; // TODO(Garrett): Use obsidian-typings for type info.
         modalWidth: number;
         offsetAngle: number;
         rotationAngle: number;
@@ -52,6 +52,14 @@
         return a + (b - a) * t;
     }
 
+    function isActionish(action: Action | ActionGroup): boolean {
+        if (isActionGroup(action)) {
+            return false;
+        }
+        const actionId = isAction(action)?.id;
+        return Boolean(actionId && actionId != "psuedo-element:back");
+    }
+
     const center: Position = { x: 50, y: 50 };
     const deadzoneRadiusPct = 20;
     const actionZoneRadiusPct = 50 - deadzoneRadiusPct;
@@ -66,7 +74,7 @@
     const ARC_STEPS = $derived(Math.floor(31 / numSlices) + 1);
     const OUTER_ARC_STEPS = $derived(Math.floor(31 / numSlices) + 1);
     const R = 50; // outer radius
-    const iconPositionPct = 4;
+    const iconPositionPct = 6;
 
     // TODO(Garrett): Determine maximum _minimum_ -- ie, what's the biggest space an option zone can take up
     //     when there are only a single or small number of option zones to draw, so that user doesn't accidentally
@@ -91,8 +99,7 @@
         const borderWidth = (1 * Math.PI) / 180;
         const aLo = -regionAngle / 2;
         const aHi = aLo + regionAngle - borderWidth;
-        const steps =
-            isAction(action)?.id != "psuedo-element:back" ? ARC_STEPS : 2;
+        const steps = isActionish(action) ? ARC_STEPS : 2;
         const arcPath: [number, number][] = [
             // Outer
             ...Array.from({ length: OUTER_ARC_STEPS + 1 }, (_, i) => {
@@ -117,11 +124,11 @@
         });
     });
 
+    const actionId = $derived(isAction(action)?.id);
     const iconName = $derived(
-        (action.icon && commands[action.icon]?.icon) ||
-            commands[action.id]?.icon,
+        action.icon || (actionId ? commands[actionId]?.icon : undefined)
     );
-    const icon = $derived(getIcon(iconName ?? "aperture"));
+    const icon = $derived(getIcon(iconName ?? "redo-2"));
 </script>
 
 <div
@@ -131,60 +138,46 @@
     data-next-target-y={nextCenterOffset.y * shiftRadius}
     style:--radial-deadzone-radius="{deadzoneRadiusPct}%"
     style:--radial-action-radius="{actionZoneRadiusPct}%"
+    style:--radial-action-color={action.color ?? "var(--interactive-normal)"}
 >
     <button
         aria-label="radial-item-detail"
         class={[
             "radial-item",
             {
-                "radial-item-action": isAction(action),
-                "radial-items-group":
-                    isActionGroup(action) ||
-                    isAction(action)?.id === "psuedo-element:back",
+                "radial-item-action": isActionish(action),
+                "radial-items-group": !isActionish(action),
                 "radial-items-pop":
                     isAction(action)?.id === "psuedo-element:back",
             },
         ]}
         role="menuitem"
         tabindex="0"
-        style:--interactive-hover={action.color
-            ? `color-mix(in oklab, ${action.color} 90%, white)`
-            : undefined}
         style:width="{modalWidth}px"
         style:height="{modalWidth}px"
         style:rotate="{(angle * 180) / Math.PI}deg"
         style:clip-path={polygon}
         style:box-shadow="{0.75 * modalWidthPx}px 0 {0.15 * modalWidthPx}px 0px
-        inset color-mix(in srgb, {action.color ?? 'transparent'} 60%, transparent)"
+        inset color-mix(in srgb, var(--radial-action-color, transparent) 60%,
+        transparent)"
         onclick={() => tryAction(true)}
     >
     </button>
 
-    {#if numSlices > 1}
         <div class="radial-item-border-wrapper">
             <div
                 class="radial-item-border-leading"
                 style:rotate="{((angle - regionAngle / 2) * 180) / Math.PI}deg"
             >
-                <div
-                    class="radial-item-border"
-                    style:box-shadow="0 5px 10px 0 {action.color ??
-                        '#000000DD'}, 0 -5px 10px 0 {prevAction.color ??
-                        '#000000DD'}"
-                ></div>
+                <div class="radial-item-border"></div>
             </div>
             <div
                 class="radial-item-border-trailing"
                 style:rotate="{((angle + regionAngle / 2) * 180) / Math.PI}deg"
             >
-                <div
-                    class="radial-item-border"
-                    style:box-shadow="0 -5px 10px 0 {action.color ??
-                        '#000000DD'}"
-                ></div>
+                <div class="radial-item-border"></div>
             </div>
         </div>
-    {/if}
 
     <div id="radial-item-detail" class="radial-item-detail">
         <div
@@ -209,7 +202,7 @@
                 class="svg-icon {iconName}"
             >
                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                {@html icon.getHTML()}
+                {@html icon!.getHTML()}
             </svg>
         </div>
         <span
@@ -230,12 +223,22 @@
 
 <style>
     .radial-item-wrapper {
+        --interactive-hover: color-mix(
+            in oklab,
+            var(--radial-action-color) 85%,
+            white
+        );
         > .radial-item {
             position: absolute;
 
             &.radial-items-pop {
-                rotate: 45deg;
-                background: red;
+                --radial-action-color: red;
+            }
+            &.radial-items-group {
+                &:hover {
+                    background: var(--interactive-hover);
+                }
+                background: var(--radial-action-color);
             }
         }
         > .radial-item-border-wrapper {
@@ -252,18 +255,28 @@
                     right: 0;
                     position: absolute;
                     background: var(--radial-action-border-color, gray);
-                    height: 2px;
                     width: var(--radial-action-radius);
                 }
             }
         }
+        > button:not(.radial-items-group) + .radial-item-border-wrapper {
+            > .radial-item-border-leading > .radial-item-border {
+                box-shadow: 0 5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
+            }
+            > .radial-item-border-trailing > .radial-item-border {
+                box-shadow: 0 -5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
+            }
+        }
         > .radial-item-detail {
+            pointer-events: none;
             > * {
                 position: absolute;
                 transform: translate(-50%, -50%);
             }
             > .radial-item-detail-body {
                 text-align: center;
+                font-size: small;
+                width: 25%;
             }
         }
     }

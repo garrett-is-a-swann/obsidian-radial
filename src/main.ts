@@ -226,9 +226,11 @@ async function checkConfiguration(app: App, settings: RadialSettings) {
     }
 
     const contents = await app.vault.cachedRead(file);
+    console.log(settings.configuration.updatedAt <= file.stat.mtime);
     if (settings.configuration.updatedAt <= file.stat.mtime) {
         applyConfiguration(settings.configuration, settings.configuration_path.value, contents);
     }
+    console.log(settings.configuration);
     return true;
 }
 
