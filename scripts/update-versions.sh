@@ -6,7 +6,11 @@ updatePath() {
     jq "$operation" "$file" >"$file".tmp && mv "$file".tmp "$file"
 }
 
-version="$(git branch --show-current | sed "s/v\?\(.*\)/\1/")"
+if [ -z "$tag" ]; then
+    version="$(git branch --show-current | sed "s/v\?\(.*\)/\1/")"
+else
+    version="${tag//[v]/}"
+fi
 semver="echo $version | sed 's/\(\(\.\?[0-9]\+\)\{3\}\).*/\1/'"
 
 updatePath ".version = \"$version\"" manifest.json
