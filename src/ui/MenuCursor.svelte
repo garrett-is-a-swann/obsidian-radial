@@ -5,7 +5,7 @@
         diameter: number;
         modalWidth: number,
         modalHeight: number,
-        setDrag: (boolean) => void,
+        setDrag: (_:boolean) => void,
         offset: Position,
     };
 

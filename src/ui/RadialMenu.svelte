@@ -263,9 +263,6 @@
         {@const angleIncrement = (2 * Math.PI) / numSlices}
         {@const currentAngle = index * angleIncrement}
         <OptionZone
-            prevAction={stack.top(stateStack).actions.items[
-                (index - 1 + numSlices) % numSlices
-            ]}
             {action}
             {index}
             {performAction}

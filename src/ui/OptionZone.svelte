@@ -9,7 +9,6 @@
     import { isActionGroup } from "utils/type/isActionGroup";
 
     interface Props {
-        prevAction: Action | ActionGroup;
         action: Action | ActionGroup;
         index: number;
         numSlices: number;
@@ -24,7 +23,6 @@
     }
 
     const {
-        prevAction,
         action,
         index,
         numSlices,
