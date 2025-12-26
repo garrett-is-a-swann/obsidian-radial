@@ -232,7 +232,14 @@
             position: absolute;
 
             &.radial-items-pop {
+                /* Ideally this is user-customizable, so doing this here
+                 * rather than colorizing the psuedo-element action directly. */
                 --radial-action-color: red;
+                --interactive-hover: color-mix(
+                    in oklab,
+                    var(--radial-action-color) 85%,
+                    white
+                );
             }
             &.radial-items-group {
                 &:hover {

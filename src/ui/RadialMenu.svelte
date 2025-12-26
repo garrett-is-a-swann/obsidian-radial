@@ -112,7 +112,6 @@
                             id: "psuedo-element:back",
                             name: "Back",
                             icon: "undo-2",
-                            color: "red",
                         },
                         ...items,
                     ],
