@@ -20,6 +20,7 @@
         rotationAngle: number;
         regionAngle: number;
         dragging: boolean;
+        zoneBorderDegrees?: number;
     }
 
     const {
@@ -33,6 +34,7 @@
         rotationAngle,
         regionAngle,
         dragging,
+        zoneBorderDegrees = 1,
     }: Props = $props();
 
     function polar(
@@ -94,9 +96,9 @@
             const polygon = `polygon(${arcPath.map(([x, y]) => `${Math.abs(x)}${unit} ${Math.abs(y)}${unit}`).join(", ")})`;
             return polygon;
         }
-        const borderWidth = (1 * Math.PI) / 180;
-        const aLo = -regionAngle / 2;
-        const aHi = aLo + regionAngle - borderWidth;
+        const borderWidth = (zoneBorderDegrees * Math.PI) / 180;
+        const aLo = (borderWidth / 2) - regionAngle / 2;
+        const aHi = aLo + regionAngle - (borderWidth);
         const steps = isActionish(action) ? ARC_STEPS : 2;
         const arcPath: [number, number][] = [
             // Outer
@@ -126,7 +128,8 @@
     const iconName = $derived(
         action.icon || (actionId ? commands[actionId]?.icon : undefined)
     );
-    const icon = $derived(getIcon(iconName ?? "redo-2"));
+    // TODO(Garrett): Decide between "aperture" and "circle-arrow-out-up-right" for action groups.
+    const icon = $derived(getIcon(iconName ?? (actionId? "badge-question-mark": "circle-arrow-out-up-right")));
 </script>
 
 <div
@@ -165,13 +168,13 @@
         <div class="radial-item-border-wrapper">
             <div
                 class="radial-item-border-leading"
-                style:rotate="{((angle - regionAngle / 2) * 180) / Math.PI}deg"
+                style:rotate="{((angle - regionAngle / 2) * 180) / Math.PI + zoneBorderDegrees / 2}deg"
             >
                 <div class="radial-item-border"></div>
             </div>
             <div
                 class="radial-item-border-trailing"
-                style:rotate="{((angle + regionAngle / 2) * 180) / Math.PI}deg"
+                style:rotate="{((angle + regionAngle / 2) * 180) / Math.PI - zoneBorderDegrees / 2}deg"
             >
                 <div class="radial-item-border"></div>
             </div>
@@ -266,10 +269,10 @@
         }
         > button:not(.radial-items-group) + .radial-item-border-wrapper {
             > .radial-item-border-leading > .radial-item-border {
-                box-shadow: 0 5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
+                box-shadow: 5px 5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
             }
             > .radial-item-border-trailing > .radial-item-border {
-                box-shadow: 0 -5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
+                box-shadow: 5px -5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
             }
         }
         > .radial-item-detail {
