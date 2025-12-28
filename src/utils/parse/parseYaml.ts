@@ -66,16 +66,7 @@ function handleObject(item: Record<string, unknown>): Action | ActionGroup {
         if (typeof value === 'string') {
             // Spacekeys-style short-form action:
             // Ex: 'keycode': "ns:action Name goes here"
-            const match = value.match(/(.*?:\S*)\s*(.*)/);
-            if (!match) {
-                console.error(`parseYaml Error - failed to handle tuple-object: Key=${key} Value=`, value);
-                throw new Error(`parseYaml Error - failed to handle tuple-object value: Key=${key} Value=` + JSON.stringify(value));
-            }
-            return validateItem({
-                id: match[1],
-                name: match[2],
-                keycode: key,
-            });
+            return handleString(value, key);
         }
 
         if (!isRecord(value)) {

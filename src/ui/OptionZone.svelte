@@ -97,8 +97,8 @@
             return polygon;
         }
         const borderWidth = (zoneBorderDegrees * Math.PI) / 180;
-        const aLo = (borderWidth / 2) - regionAngle / 2;
-        const aHi = aLo + regionAngle - (borderWidth);
+        const aLo = borderWidth / 2 - regionAngle / 2;
+        const aHi = aLo + regionAngle - borderWidth;
         const steps = isActionish(action) ? ARC_STEPS : 2;
         const arcPath: [number, number][] = [
             // Outer
@@ -125,11 +125,17 @@
     });
 
     const actionId = $derived(isAction(action)?.id);
-    const iconName = $derived(
-        action.icon || (actionId ? commands[actionId]?.icon : undefined)
-    );
+    const commandData = $derived(actionId ? commands[actionId] : undefined);
+    const iconName = $derived(action.icon || commandData?.icon);
     // TODO(Garrett): Decide between "aperture" and "circle-arrow-out-up-right" for action groups.
-    const icon = $derived(getIcon(iconName ?? (actionId? "badge-question-mark": "circle-arrow-out-up-right")));
+    const iconSVG = $derived(
+        getIcon(
+            iconName ??
+                (actionId
+                    ? "badge-question-mark"
+                    : "circle-arrow-out-up-right"),
+        ),
+    );
 </script>
 
 <div
@@ -142,7 +148,6 @@
     style:--radial-action-color={action.color ?? "var(--interactive-normal)"}
 >
     <button
-        aria-label="radial-item-detail"
         class={[
             "radial-item",
             {
@@ -152,6 +157,7 @@
                     isAction(action)?.id === "psuedo-element:back",
             },
         ]}
+        aria-label="radial-item-detail"
         role="menuitem"
         tabindex="0"
         style:width="{modalWidth}px"
@@ -165,22 +171,24 @@
     >
     </button>
 
-        <div class="radial-item-border-wrapper">
-            <div
-                class="radial-item-border-leading"
-                style:rotate="{((angle - regionAngle / 2) * 180) / Math.PI + zoneBorderDegrees / 2}deg"
-            >
-                <div class="radial-item-border"></div>
-            </div>
-            <div
-                class="radial-item-border-trailing"
-                style:rotate="{((angle + regionAngle / 2) * 180) / Math.PI - zoneBorderDegrees / 2}deg"
-            >
-                <div class="radial-item-border"></div>
-            </div>
+    <div class="radial-item-border-wrapper">
+        <div
+            class="radial-item-border-leading"
+            style:rotate="{((angle - regionAngle / 2) * 180) / Math.PI +
+                zoneBorderDegrees / 2}deg"
+        >
+            <div class="radial-item-border"></div>
         </div>
+        <div
+            class="radial-item-border-trailing"
+            style:rotate="{((angle + regionAngle / 2) * 180) / Math.PI -
+                zoneBorderDegrees / 2}deg"
+        >
+            <div class="radial-item-border"></div>
+        </div>
+    </div>
 
-    <div id="radial-item-detail" class="radial-item-detail">
+    <div class="radial-item-detail" id="radial-item-detail">
         <div
             class="radial-item-detail-icon"
             style:left="{(deadzoneRadiusPct + iconPositionPct) *
@@ -190,21 +198,23 @@
                 Math.sin(angle) +
                 50}%"
         >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="svg-icon {iconName}"
-            >
-                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                {@html icon!.getHTML()}
-            </svg>
+            {#if iconSVG}
+                <svg
+                    class="svg-icon {iconName}"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                    {@html iconSVG.getHTML()}
+                </svg>
+            {/if}
         </div>
         <span
             class="radial-item-detail-body"
@@ -217,7 +227,7 @@
                 Math.sin(angle) +
                 50}%"
         >
-            {action.name}
+            {action.name || commandData?.name}
         </span>
     </div>
 </div>
@@ -269,10 +279,19 @@
         }
         > button:not(.radial-items-group) + .radial-item-border-wrapper {
             > .radial-item-border-leading > .radial-item-border {
-                box-shadow: 5px 5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
+                box-shadow: 0px 5px 5px 0px
+                    hsl(from var(--radial-action-color) h s calc(l - 10)) inset;
+                height: 10px;
+                background: transparent;
+                transform: translateY(5px);
             }
             > .radial-item-border-trailing > .radial-item-border {
-                box-shadow: 5px -5px 10px 5px hsl(from var(--radial-action-color) h s calc(l - 10));
+                box-shadow: 0px -5px 5px 0px hsl(
+                        from var(--radial-action-color) h s calc(l - 10)
+                    ) inset;
+                height: 10px;
+                background: transparent;
+                transform: translateY(-5px);
             }
         }
         > .radial-item-detail {

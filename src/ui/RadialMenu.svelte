@@ -203,9 +203,9 @@
 </script>
 
 <div
+    class="radial-wrapper"
     role="menu"
     tabindex="-1"
-    class="radial-wrapper"
     bind:this={radialWrapper}
     bind:clientWidth={width}
     bind:clientHeight={height}
