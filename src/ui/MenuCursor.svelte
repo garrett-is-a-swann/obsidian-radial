@@ -2,21 +2,16 @@
     import type { Position } from "types/Position";
 
     interface Props {
+        text?: string;
         diameter: number;
-        modalWidth: number,
-        modalHeight: number,
-        setDrag: (_:boolean) => void,
-        offset: Position,
-    };
+        modalWidth: number;
+        modalHeight: number;
+        setDrag: (_: boolean) => void;
+        offset: Position;
+    }
 
-    let {
-        diameter,
-        modalWidth,
-        modalHeight,
-        setDrag,
-        offset,
-    }: Props = $props();
-
+    let { text, diameter, modalWidth, modalHeight, setDrag, offset }: Props =
+        $props();
 </script>
 
 <button
@@ -30,16 +25,18 @@
     onmousedown={() => setDrag(true)}
     ontouchstart={() => setDrag(true)}
 >
+    {text}
 </button>
 
 <style>
-button {
-    border: 1px solid var(--color-accent);
-    position: absolute;
-    width: var(
-        --radial-button-diameter,
-        var(--radial-button-diameter-config, 15%)
-    );
-    aspect-ratio: 1/1;
-}
+    button {
+        border: 1px solid var(--color-accent);
+        position: absolute;
+        width: var(
+            --radial-button-diameter,
+            var(--radial-button-diameter-config, fit-content)
+        );
+        height: auto;
+        aspect-ratio: 1/1;
+    }
 </style>

@@ -110,7 +110,7 @@
                     items: [
                         {
                             id: "psuedo-element:back",
-                            name: "Back",
+                            name: `Back (${stack.top(stateStack).actions.name})`,
                             icon: "undo-2",
                         },
                         ...items,
@@ -256,6 +256,7 @@
             buttonState.dragging = drag;
         }}
         offset={buttonState.offset}
+        text={stack.top(stateStack).actions.name}
     />
 
     {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}

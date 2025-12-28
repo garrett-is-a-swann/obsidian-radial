@@ -18,7 +18,7 @@ const CSS_CUSTOM_PROPERTIES = {
     RADIAL_BUTTON_DIAMETER: {
         external: '--radial-button-diameter',
         internal: '--radial-button-diameter-config',
-        fallback: '15%',
+        fallback: 'fit-content',
     },
 }
 
@@ -121,7 +121,7 @@ const DEFAULT_SETTINGS: RadialFormSettings = {
             type: FormFieldType.String,
             value: undefined,
             description: `Manual override for Radial Menu Buttons diameter. Also overridable via ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.external} css custom property. Otherwise defaults to ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}.`,
-            placeholder: `Ex: ${CSS_CUSTOM_PROPERTIES.RADIAL_BUTTON_DIAMETER.fallback}`
+            placeholder: `Ex: 15%`
         },
         radial_retargeting: {
             name: "Radial Retargeting",

@@ -69,8 +69,13 @@ function handleObject(item: Record<string, unknown>): Action | ActionGroup {
             return handleString(value, key);
         }
 
+        if (value === null || value === undefined) {
+            // Ex: `ns:action: `
+            return handleString(key);
+        }
+
         if (!isRecord(value)) {
-            console.error("Radial Error - value type is not a record!");
+            console.error("Radial Error - value type is not a record!", value);
             throw new Error("Radial Error - value type is not a record!")
         }
 

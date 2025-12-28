@@ -21,6 +21,8 @@
         regionAngle: number;
         dragging: boolean;
         zoneBorderDegrees?: number;
+        deadzoneRadiusPct?: number;
+        actionInsetOffsetPct?: number;
     }
 
     const {
@@ -35,18 +37,16 @@
         regionAngle,
         dragging,
         zoneBorderDegrees = 1,
+        deadzoneRadiusPct = 20,
+        actionInsetOffsetPct = 3,
     }: Props = $props();
 
     function polar(
         angle: number,
         radius: number,
         { x, y }: Position = center,
-        offset: number = 0,
     ): [number, number] {
-        return [
-            offset + x + radius * Math.cos(angle),
-            y + radius * Math.sin(angle),
-        ];
+        return [x + radius * Math.cos(angle), y + radius * Math.sin(angle)];
     }
     function lerp(a: number, b: number, t: number) {
         return a + (b - a) * t;
@@ -61,11 +61,8 @@
     }
 
     const center: Position = { x: 50, y: 50 };
-    const deadzoneRadiusPct = 20;
-    const actionZoneRadiusPct = 50 - deadzoneRadiusPct;
     const angle = $derived(rotationAngle - offsetAngle);
-    const modalWidthPx = $derived(modalWidth);
-    const shiftRadius = $derived(((deadzoneRadiusPct / 50) * modalWidthPx) / 2);
+    const shiftRadius = $derived(((deadzoneRadiusPct / 50) * modalWidth) / 2);
     const nextCenterOffset = $derived({
         x: Math.cos(angle),
         y: Math.sin(angle),
@@ -109,7 +106,7 @@
             // Inset
             ...Array.from({ length: steps + 1 }, (_, i) => {
                 const t = lerp(aHi, aLo, i / steps);
-                return polar(t, deadzoneRadiusPct);
+                return polar(t, 50 - actionRadius);
             }),
         ];
         const polygon = `polygon(${arcPath.map(([x, y]) => `${Math.abs(x)}${unit} ${Math.abs(y)}${unit}`).join(", ")})`;
@@ -124,6 +121,15 @@
         });
     });
 
+    const actionRadius = $derived(
+        50 -
+            deadzoneRadiusPct -
+            (isActionish(action)
+                ? actionInsetOffsetPct
+                : isAction(action)?.id === "psuedo-element:back"
+                  ? -actionInsetOffsetPct
+                  : 0),
+    );
     const actionId = $derived(isAction(action)?.id);
     const commandData = $derived(actionId ? commands[actionId] : undefined);
     const iconName = $derived(action.icon || commandData?.icon);
@@ -144,7 +150,7 @@
     data-next-target-x={nextCenterOffset.x * shiftRadius}
     data-next-target-y={nextCenterOffset.y * shiftRadius}
     style:--radial-deadzone-radius="{deadzoneRadiusPct}%"
-    style:--radial-action-radius="{actionZoneRadiusPct}%"
+    style:--radial-action-radius="{actionRadius}%"
     style:--radial-action-color={action.color ?? "var(--interactive-normal)"}
 >
     <button
@@ -164,7 +170,7 @@
         style:height="{modalWidth}px"
         style:rotate="{(angle * 180) / Math.PI}deg"
         style:clip-path={polygon}
-        style:box-shadow="{0.75 * modalWidthPx}px 0 {0.15 * modalWidthPx}px 0px
+        style:box-shadow="{0.75 * modalWidth}px 0 {0.15 * modalWidth}px 0px
         inset color-mix(in srgb, var(--radial-action-color, transparent) 60%,
         transparent)"
         onclick={() => tryAction(true)}
@@ -280,14 +286,14 @@
         > button:not(.radial-items-group) + .radial-item-border-wrapper {
             > .radial-item-border-leading > .radial-item-border {
                 box-shadow: 0px 5px 5px 0px
-                    hsl(from var(--radial-action-color) h s calc(l - 10)) inset;
+                    hsl(from var(--radial-action-color) h s calc(l - 3)) inset;
                 height: 10px;
                 background: transparent;
                 transform: translateY(5px);
             }
             > .radial-item-border-trailing > .radial-item-border {
                 box-shadow: 0px -5px 5px 0px hsl(
-                        from var(--radial-action-color) h s calc(l - 10)
+                        from var(--radial-action-color) h s calc(l - 3)
                     ) inset;
                 height: 10px;
                 background: transparent;
