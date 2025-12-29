@@ -222,6 +222,11 @@
                 </svg>
             {/if}
         </div>
+        <div
+            style="position: absolute; width: 5px; height: 5px; background: red;"
+            style:left="{modalWidth / 2 + nextCenterOffset.x * shiftRadius}px"
+            style:top="{modalWidth / 2 + nextCenterOffset.y * shiftRadius}px"
+        ></div>
         <span
             class="radial-item-detail-body"
             style:left="{(deadzoneRadiusPct +
