@@ -161,7 +161,10 @@
         if (!buttonState.dragging) {
             return;
         }
-        let targetElement = document.elementFromPoint(clientX, clientY);
+        let targetElement = radialWrapper.ownerDocument.elementFromPoint(
+            clientX,
+            clientY,
+        );
 
         while (targetElement && targetElement != radialWrapper) {
             if (
