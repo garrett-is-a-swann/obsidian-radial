@@ -86,15 +86,16 @@
                     // TODO(Garrett): Colorization/Pre-Verification commands are functional.
                     console.error("Unknown command:", command);
                 }
-                if (command.callback) {
-                    command.callback();
-                } else if (command.checkCallback) {
-                    command.checkCallback(false);
-                } else if (command.editorCheckCallback) {
-                    command.editorCheckCallback(
-                        false,
-                        app.workspace.activeEditor,
-                        app.workspace.getActiveViewOfType(MarkdownView),
+
+                // checkCallback is overriden if a user defines an editorCallback or editorCheckCallback.
+                if (
+                    (!command.checkCallback?.(false) &&
+                        command.checkCallback(true)) ||
+                    command.callback?.()
+                ) {
+                    console.error(
+                        "Radial Error - Command could not be called:",
+                        commandId,
                     );
                 }
                 closeMenu();
@@ -169,13 +170,10 @@
             ) {
                 const actionIndex: number =
                     +targetElement.getAttribute("data-action-index")!;
-                performAction(
-                    stack.top(stateStack).actions.items[actionIndex],
-                    {
-                        x: +targetElement.getAttribute("data-next-target-x")!,
-                        y: +targetElement.getAttribute("data-next-target-y")!,
-                    },
-                );
+                performAction(currentActions()[actionIndex], {
+                    x: +targetElement.getAttribute("data-next-target-x")!,
+                    y: +targetElement.getAttribute("data-next-target-y")!,
+                });
             }
 
             targetElement = targetElement.parentElement;
@@ -199,6 +197,17 @@
             clientX - centerX - buttonState.offset.x,
             clientY - centerY - buttonState.offset.y,
         );
+    }
+
+    function currentActions() {
+        return stack
+            .top(stateStack)
+            .actions.items.filter(
+                (action) =>
+                    !isAction(action) ||
+                    commands[isAction(action)!.id]?.checkCallback?.(true) !==
+                        false,
+            );
     }
 </script>
 
@@ -259,8 +268,8 @@
         text={stack.top(stateStack).actions.name}
     />
 
-    {#each stack.top(stateStack).actions.items as action, index (`${action}-${index}`)}
-        {@const numSlices = stack.top(stateStack).actions.items.length}
+    {#each currentActions() as action, index (`${action}-${index}`)}
+        {@const numSlices = currentActions().length}
         {@const angleIncrement = (2 * Math.PI) / numSlices}
         {@const currentAngle = index * angleIncrement}
         <OptionZone
