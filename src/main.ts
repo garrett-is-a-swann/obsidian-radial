@@ -270,9 +270,6 @@ class RadialModal extends Modal {
                     this.close();
                 },
                 setTarget: radial_menu.radial_retargeting.value ? ((offset: Position) => {
-                    function pxToPct({ x, y }: Position) {
-                        return
-                    }
                     if ((this.app as unknown as { isMobile: boolean }).isMobile) {
                         parent.style.left = `${(offset.x / window.innerWidth) * 100 + (radial_menu.position_adjustment.horizontal?.value ?? 0)}%`;
                         parent.style.top = `${(offset.y / window.innerHeight) * 100 + (radial_menu.position_adjustment.vertical?.value ?? 0)}%`;
