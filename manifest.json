@@ -1,7 +1,7 @@
 {
   "id": "radial",
   "name": "Radial",
-  "version": "handled by scripts/update-versions.sh",
+  "version": "0.0.0.8a",
   "minAppVersion": "0.15.0",
   "description": "An Obsidian plugin that adds a radial/pie menu for quick actions/action groups for better UX on mobile, and desktop.",
   "author": "Garrett Swann",
