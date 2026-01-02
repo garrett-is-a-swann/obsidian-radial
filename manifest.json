@@ -1,11 +1,11 @@
 {
-  "id": "obsidian-radial",
-  "name": "Obsidian Radial",
+  "id": "radial",
+  "name": "Radial",
   "version": "handled by scripts/update-versions.sh",
   "minAppVersion": "0.15.0",
-  "description": "An [Obsidian](https://obsidian.md/) plugin that adds a radial/pie menu for quick actions/action groups for better UX on mobile, and (to a lesser extent) desktop.",
+  "description": "An Obsidian plugin that adds a radial/pie menu for quick actions/action groups for better UX on mobile, and desktop.",
   "author": "Garrett Swann",
-  "authorUrl": "https://github.com/garrett-is-a-swann/obsidian-radial",
+  "authorUrl": "https://ko-fi.com/gswann",
   "fundingUrl": "https://ko-fi.com/gswann",
   "isDesktopOnly": false
 }
