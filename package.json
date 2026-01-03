@@ -1,6 +1,6 @@
 {
   "name": "radial",
-  "version": "0.0.0.8a",
+  "version": "0.0.0.9a",
   "description": "An Obsidian plugin that adds a radial/pie menu for quick actions/action groups for better UX on mobile, and (to a lesser extent) desktop.",
   "main": "main.js",
   "scripts": {
