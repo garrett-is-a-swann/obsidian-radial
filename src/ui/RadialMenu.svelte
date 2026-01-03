@@ -89,7 +89,7 @@
 
                 // checkCallback is overriden if a user defines an editorCallback or editorCheckCallback.
                 if (
-                    (!command.checkCallback?.(false) &&
+                    (command.checkCallback?.(false) &&
                         command.checkCallback(true)) ||
                     command.callback?.()
                 ) {
